@@ -21,22 +21,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useState, useTransition } from "react";
 
 const formSchema = z.object({
-  apiUrl: z.string().url({ message: "Please enter a valid URL." }),
-  headers: z.string().min(1, { message: "Headers are required." })
-    .refine((val) => {
-      try {
-        JSON.parse(val);
-        return true;
-      } catch (e) {
-        return false;
-      }
-    }, { message: "Headers must be valid JSON." }),
   email: z.string().email({ message: "Please enter a valid email." }),
 });
+
+const hardcodedHeaders = {
+  "Accept": "application/json;api_version=2",
+  "User-Agent": "CruiseAboardTracker/1.2"
+};
 
 export function ConfigurationForm() {
   const [isPending, startTransition] = useTransition();
@@ -45,8 +39,6 @@ export function ConfigurationForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      apiUrl: "",
-      headers: "",
       email: "",
     },
   });
@@ -54,7 +46,12 @@ export function ConfigurationForm() {
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(() => {
       // In a real app, you would save these values to a secure backend.
-      console.log(values);
+      const configuration = {
+        apiUrl: process.env.API_ENDPOINT_URL,
+        headers: hardcodedHeaders,
+        email: values.email
+      }
+      console.log(configuration);
       return new Promise(resolve => setTimeout(() => {
         setIsSuccess(true);
         resolve(true);
@@ -71,43 +68,12 @@ export function ConfigurationForm() {
           Configuration
         </CardTitle>
         <CardDescription>
-          Enter API details and notification preferences.
+          Enter your email for price drop notifications.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="apiUrl"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>API Endpoint URL</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://api.msc.com/prices" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="headers"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Authentication Headers (JSON)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder='{ "Authorization": "Bearer YOUR_TOKEN" }'
-                      className="font-code"
-                      rows={3}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <FormField
               control={form.control}
               name="email"
