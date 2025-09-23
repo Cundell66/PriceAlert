@@ -5,7 +5,6 @@ import {
   type PriceDropInfo,
   sendPriceDropEmail,
 } from "@/ai/flows/price-drop-email-summarization";
-import { getStore } from "genkit";
 
 export async function generateSummaryAction(priceDropInfo: PriceDropInfo) {
   try {
@@ -19,12 +18,11 @@ export async function generateSummaryAction(priceDropInfo: PriceDropInfo) {
 
 export async function sendEmailAction(priceDropInfo: PriceDropInfo) {
   try {
-    const store = getStore();
-    const config = await store.read("config/user");
-    if (!config || !config.email) {
-      return { success: false, error: "Configuration not found. Please save your email first." };
+    const toEmail = process.env.NOTIFICATION_EMAIL;
+    if (!toEmail) {
+      return { success: false, error: "NOTIFICATION_EMAIL environment variable not set." };
     }
-    await sendPriceDropEmail({ ...priceDropInfo, toEmail: config.email });
+    await sendPriceDropEmail({ ...priceDropInfo, toEmail });
     return { success: true };
   } catch (error) {
     console.error("Error sending email:", error);
@@ -33,12 +31,8 @@ export async function sendEmailAction(priceDropInfo: PriceDropInfo) {
 }
 
 export async function saveConfigurationAction(email: string) {
-    try {
-        const store = getStore();
-        await store.write("config/user", { email });
-        return { success: true };
-    } catch (error) {
-        console.error("Error saving configuration:", error);
-        return { success: false, error: "Failed to save configuration." };
-    }
+    // This function is no longer used but kept to avoid breaking other parts of the example.
+    // In a real app, you might remove this entirely if configuration is only via .env
+    console.log("saveConfigurationAction is deprecated. Use environment variables.");
+    return { success: true };
 }

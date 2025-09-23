@@ -13,6 +13,7 @@ import { ai } from '@/ai/genkit';
 import { fetchCruises, type Cruise } from '@/lib/cruise-api';
 import { getStore } from 'genkit';
 import { z } from 'genkit';
+import nodemailer from 'nodemailer';
 
 // Schemas for price drop information
 const PriceDropInfoSchema = z.object({
@@ -64,7 +65,7 @@ export const summarizePriceDrop = ai.defineFlow(
   }
 );
 
-// Tool to send an email (mocked for now)
+// Tool to send an email
 const sendEmailTool = ai.defineTool(
     {
         name: 'sendEmail',
@@ -79,13 +80,30 @@ const sendEmailTool = ai.defineTool(
         }),
     },
     async (input) => {
-        console.log('--- SENDING EMAIL ---');
-        console.log(`To: ${input.to}`);
-        console.log(`Subject: ${input.subject}`);
-        console.log(`Body: ${input.body}`);
-        console.log('---------------------');
-        // In a real app, this would integrate with an email service like SendGrid or Postmark.
-        return { success: true };
+        try {
+             const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: parseInt(process.env.SMTP_PORT || "465"),
+                secure: parseInt(process.env.SMTP_PORT || "465") === 465, // true for 465, false for other ports
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASSWORD,
+                },
+            });
+
+            await transporter.sendMail({
+                from: `"CruiseCatcher" <${process.env.SMTP_USER}>`,
+                to: input.to,
+                subject: input.subject,
+                html: input.body,
+            });
+
+            console.log(`Email sent to ${input.to}`);
+            return { success: true };
+        } catch (error) {
+            console.error('Error sending email with Nodemailer:', error);
+            return { success: false };
+        }
     }
 );
 
@@ -100,16 +118,18 @@ export const sendPriceDropEmail = ai.defineFlow(
         const summaryResult = await summarizePriceDrop(input);
 
         const emailBody = `
-      Hi there!
-      Exciting news! We've detected a price drop on a cruise you might be interested in.
-      ${summaryResult.summary}
-      Details:
-      - Ship: ${input.shipName}
-      - Date: ${input.cruiseDate}
-      - Previous Price: $${input.priceFrom}
-      - New Price: $${input.priceTo}
-      Happy sailing!
-      The CruiseCatcher Team
+      <p>Hi there!</p>
+      <p>Exciting news! We've detected a price drop on a cruise you might be interested in.</p>
+      <p><b>${summaryResult.summary}</b></p>
+      <p><b>Details:</b></p>
+      <ul>
+        <li><b>Ship:</b> ${input.shipName}</li>
+        <li><b>Date:</b> ${input.cruiseDate}</li>
+        <li><b>Previous Price:</b> $${input.priceFrom}</li>
+        <li><b>New Price:</b> $${input.priceTo}</li>
+      </ul>
+      <p>Happy sailing!</p>
+      <p>The CruiseCatcher Team</p>
     `;
 
         const emailSubject = `Price Drop Alert! ${input.shipName} is now cheaper!`;
@@ -133,14 +153,14 @@ export const monitorPriceDrops = ai.defineFlow(
     description: 'Monitors the cruise API for price drops and triggers alerts.',
   },
   async () => {
-    const store = getStore();
-    const config = await store.read("config/user");
+    const toEmail = process.env.NOTIFICATION_EMAIL;
 
-    if (!config || !config.email) {
-      console.log('Monitoring skipped: User configuration not found.');
+    if (!toEmail) {
+      console.log('Monitoring skipped: NOTIFICATION_EMAIL environment variable not set.');
       return;
     }
 
+    const store = getStore();
     console.log('Fetching current cruise prices...');
     const currentCruises = await fetchCruises();
     const previousCruises = (await store.read<Cruise[]>('cruises/latest')) || [];
@@ -166,7 +186,7 @@ export const monitorPriceDrops = ai.defineFlow(
               vendorId: currentCruise.vendor_id,
               priceFrom: previousPrice,
               priceTo: currentPrice,
-              toEmail: config.email,
+              toEmail: toEmail,
             };
             await sendPriceDropEmail(priceDropInfo);
           }
