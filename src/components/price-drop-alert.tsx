@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import Image from "next/image";
-import { generateSummaryAction, sendEmailAction } from "@/lib/actions";
+import { generateSummaryAction, sendEmailAction, getLatestPriceDropAction } from "@/lib/actions";
 import type { PriceDropInfo } from "@/ai/flows/price-drop-email-summarization";
 import {
   Card,
@@ -21,67 +21,138 @@ import {
   Mail,
   Loader2,
   Check,
+  Info,
 } from "lucide-react";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-
-// Mock data for a price drop event
-const mockPriceDrop: PriceDropInfo = {
-  shipName: "Oceanic Wonder",
-  cruiseDate: "2024-12-15",
-  vendorId: "MSC-OW-121524",
-  priceFrom: 2499,
-  priceTo: 1999,
-};
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export function PriceDropAlert() {
+  const [priceDrop, setPriceDrop] = useState<PriceDropInfo | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
-  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isSendingEmail, startEmailTransition] = useTransition();
   const [isEmailSuccess, setIsEmailSuccess] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchSummary = async () => {
-      setIsLoadingSummary(true);
-      setSummaryError(null);
-      const result = await generateSummaryAction(mockPriceDrop);
-      if (result.success) {
-        setSummary(result.summary);
-      } else {
-        setSummaryError(result.error || "An unknown error occurred.");
+    const fetchLatestDrop = async () => {
+      setIsLoading(true);
+      setError(null);
+      const dropResult = await getLatestPriceDropAction();
+
+      if (dropResult.success && dropResult.data) {
+        setPriceDrop(dropResult.data);
+        const summaryResult = await generateSummaryAction(dropResult.data);
+        if (summaryResult.success) {
+          setSummary(summaryResult.summary);
+        } else {
+          setError(summaryResult.error || "Failed to generate summary.");
+        }
+      } else if (!dropResult.success) {
+        setError(dropResult.error || "Failed to fetch latest price drop.");
       }
-      setIsLoadingSummary(false);
+      // If dropResult.data is null, it means no price drop has been detected yet.
+      // The component will render a message for this state.
+
+      setIsLoading(false);
     };
 
-    fetchSummary();
+    fetchLatestDrop();
   }, []);
 
   const handleSendEmail = () => {
+    if (!priceDrop) return;
     startEmailTransition(async () => {
-        const result = await sendEmailAction(mockPriceDrop);
-        if (result.success) {
-            setIsEmailSuccess(true);
-            toast({
-                title: "Success",
-                description: "Email notification sent successfully!",
-            });
-            setTimeout(() => setIsEmailSuccess(false), 2000);
-        } else {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: result.error,
-            });
-        }
+      const result = await sendEmailAction(priceDrop);
+      if (result.success) {
+        setIsEmailSuccess(true);
+        toast({
+          title: "Success",
+          description: "Email notification sent successfully!",
+        });
+        setTimeout(() => setIsEmailSuccess(false), 2000);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.error,
+        });
+      }
     });
   };
 
   const cruiseImage = PlaceHolderImages.find((img) => img.id === "cruise-ship");
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-64" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="aspect-[3/2] w-full rounded-lg" />
+          <div className="space-y-4 mt-6">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Separator />
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Skeleton className="h-10 w-full" />
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline flex items-center gap-2">
+            <Bell className="h-6 w-6 text-accent" />
+            Latest Price Drop
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!priceDrop) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline flex items-center gap-2">
+            <Bell className="h-6 w-6 text-accent" />
+            Latest Price Drop
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>No Price Drops Yet</AlertTitle>
+            <AlertDescription>
+              The agent is actively monitoring for new price drops. We'll display the latest one here as soon as it's detected.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden">
@@ -113,13 +184,13 @@ export function PriceDropAlert() {
           <div className="flex items-center gap-2">
             <Ship className="h-5 w-5 text-muted-foreground" />
             <span>
-              <strong>Ship:</strong> {mockPriceDrop.shipName}
+              <strong>Ship:</strong> {priceDrop.shipName}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-muted-foreground" />
             <span>
-              <strong>Date:</strong> {mockPriceDrop.cruiseDate}
+              <strong>Date:</strong> {priceDrop.cruiseDate}
             </span>
           </div>
         </div>
@@ -128,14 +199,14 @@ export function PriceDropAlert() {
           <div className="text-center">
             <p className="text-sm text-muted-foreground">From</p>
             <p className="text-2xl font-bold line-through">
-              ${mockPriceDrop.priceFrom}
+              ${priceDrop.priceFrom}
             </p>
           </div>
           <ArrowRight className="h-6 w-6 text-accent shrink-0" />
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Now</p>
             <p className="text-3xl font-bold text-accent">
-              ${mockPriceDrop.priceTo}
+              ${priceDrop.priceTo}
             </p>
           </div>
         </div>
@@ -147,14 +218,12 @@ export function PriceDropAlert() {
             <Sparkles className="h-5 w-5 text-primary" />
             AI-Generated Summary
           </h3>
-          {isLoadingSummary ? (
+          {!summary ? (
             <div className="space-y-2">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-5/6" />
               <Skeleton className="h-4 w-3/4" />
             </div>
-          ) : summaryError ? (
-            <p className="text-destructive text-sm">{summaryError}</p>
           ) : (
             <p className="text-foreground/90 italic border-l-4 border-primary pl-4 py-2 bg-primary/5 rounded-r-md">
               {summary}

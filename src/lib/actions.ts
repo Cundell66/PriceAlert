@@ -4,6 +4,7 @@ import {
   summarizePriceDrop,
   type PriceDropInfo,
   sendPriceDropEmail,
+  getLatestPriceDrop,
 } from "@/ai/flows/price-drop-email-summarization";
 
 export async function generateSummaryAction(priceDropInfo: PriceDropInfo) {
@@ -27,6 +28,16 @@ export async function sendEmailAction(priceDropInfo: PriceDropInfo) {
   } catch (error) {
     console.error("Error sending email:", error);
     return { success: false, error: "Failed to send email notification." };
+  }
+}
+
+export async function getLatestPriceDropAction() {
+  try {
+    const result = await getLatestPriceDrop();
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Error fetching latest price drop:", error);
+    return { success: false, error: "Failed to fetch latest price drop." };
   }
 }
 

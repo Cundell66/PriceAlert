@@ -7,6 +7,7 @@
  * - PriceDropSummary - The return type for the summarizePriceDrop function.
  * - monitorPriceDrops - A flow that monitors the cruise API for price drops.
  * - sendPriceDropEmail - A flow that sends an email notification for a price drop.
+ * - getLatestPriceDrop - A flow that retrieves the latest price drop.
  */
 
 import { ai } from '@/ai/genkit';
@@ -188,6 +189,9 @@ export const monitorPriceDrops = ai.defineFlow(
               priceTo: currentPrice,
               toEmail: toEmail,
             };
+            // Save the latest price drop for the UI
+            await store.write('cruises/latest-drop', priceDropInfo);
+
             await sendPriceDropEmail(priceDropInfo);
           }
         }
@@ -197,5 +201,19 @@ export const monitorPriceDrops = ai.defineFlow(
     console.log('Saving current cruise prices for next check...');
     await store.write('cruises/latest', currentCruises);
     console.log('Monitoring complete.');
+  }
+);
+
+// Flow to retrieve the latest price drop
+export const getLatestPriceDrop = ai.defineFlow(
+  {
+    name: 'getLatestPriceDrop',
+    description: 'Retrieves the most recent price drop from the store.',
+    outputSchema: PriceDropInfoSchema.nullable(),
+  },
+  async () => {
+    const store = getStore();
+    const latestDrop = await store.read<PriceDropInfo>('cruises/latest-drop');
+    return latestDrop || null;
   }
 );
