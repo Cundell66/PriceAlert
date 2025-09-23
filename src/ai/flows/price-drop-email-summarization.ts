@@ -134,15 +134,14 @@ export const sendPriceDropEmail = ai.defineFlow(
     `;
 
         const emailSubject = `Price Drop Alert! ${input.shipName} is now cheaper!`;
-
-        const { output } = await ai.generate({
-            prompt: `Send an email to ${input.toEmail} with the subject "${emailSubject}" and the following body: ${emailBody}`,
-            tools: [sendEmailTool],
-        });
         
-        const toolOutput = output.toolCalls[0]?.output;
+        const result = await sendEmailTool({
+          to: input.toEmail,
+          subject: emailSubject,
+          body: emailBody
+        });
 
-        return { success: !!toolOutput?.success };
+        return { success: result.success };
     }
 );
 
