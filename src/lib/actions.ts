@@ -23,8 +23,8 @@ export async function sendEmailAction(priceDropInfo: PriceDropInfo) {
     if (!toEmail) {
       return { success: false, error: "NOTIFICATION_EMAIL environment variable not set." };
     }
-    await sendPriceDropEmail({ ...priceDropInfo, toEmail });
-    return { success: true };
+    const result = await sendPriceDropEmail({ ...priceDropInfo, toEmail });
+    return { success: result.success };
   } catch (error) {
     console.error("Error sending email:", error);
     return { success: false, error: "Failed to send email notification." };
