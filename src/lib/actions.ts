@@ -26,7 +26,7 @@ export async function sendEmailAction(priceDropInfo: PriceDropInfo) {
     }
     await sendPriceDropEmail({ ...priceDropInfo, toEmail: config.email });
     return { success: true };
-  } catch (error)
+  } catch (error) {
     console.error("Error sending email:", error);
     return { success: false, error: "Failed to send email notification." };
   }

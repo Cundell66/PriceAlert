@@ -11,7 +11,7 @@
 
 import { ai } from '@/ai/genkit';
 import { fetchCruises, type Cruise } from '@/lib/cruise-api';
-import { getStore } from 'genkit/store';
+import { getStore } from 'genkit';
 import { z } from 'genkit';
 
 // Schemas for price drop information
