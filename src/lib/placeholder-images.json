@@ -1,3 +1,10 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "cruise-ship",
+      "description": "A large cruise ship on the ocean.",
+      "imageUrl": "https://images.unsplash.com/photo-1580541631950-7282082b53ce?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjcnVpc2UlMjBzaGlwfGVufDB8fHx8MTc1ODY2MjYyN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "cruise ship"
+    }
+  ]
 }
