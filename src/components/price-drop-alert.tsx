@@ -43,23 +43,30 @@ export function PriceDropAlert() {
     const fetchLatestDrop = async () => {
       setIsLoading(true);
       setError(null);
-      const dropResult = await getLatestPriceDropAction();
+      try {
+        const dropResult = await getLatestPriceDropAction();
 
-      if (dropResult.success && dropResult.data) {
-        setPriceDrop(dropResult.data);
-        const summaryResult = await generateSummaryAction(dropResult.data);
-        if (summaryResult.success) {
-          setSummary(summaryResult.summary);
+        if (dropResult.success) {
+          if (dropResult.data) {
+            setPriceDrop(dropResult.data);
+            const summaryResult = await generateSummaryAction(dropResult.data);
+            if (summaryResult.success) {
+              setSummary(summaryResult.summary);
+            } else {
+              setError(summaryResult.error || "Failed to generate summary.");
+            }
+          }
+          // If dropResult.data is null, it means no price drop has been detected yet.
+          // The component will render a message for this state, so no action is needed here.
         } else {
-          setError(summaryResult.error || "Failed to generate summary.");
+          setError(dropResult.error || "Failed to fetch latest price drop.");
         }
-      } else if (!dropResult.success) {
-        setError(dropResult.error || "Failed to fetch latest price drop.");
+      } catch (e) {
+        setError("An unexpected error occurred while fetching data.");
+        console.error(e);
+      } finally {
+        setIsLoading(false);
       }
-      // If dropResult.data is null, it means no price drop has been detected yet.
-      // The component will render a message for this state.
-
-      setIsLoading(false);
     };
 
     fetchLatestDrop();
@@ -232,13 +239,13 @@ export function PriceDropAlert() {
         </div>
       </CardContent>
       <CardFooter>
-        <Button className="w-full" variant="outline" onClick={handleSendEmail} disabled={isSendingEmail || isEmailSuccess}>
+        <Button className="w-full" onClick={handleSendEmail} disabled={isSendingEmail || isEmailSuccess}>
           {isSendingEmail ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</>
           ) : isEmailSuccess ? (
             <><Check className="mr-2 h-4 w-4" /> Sent!</>
           ) : (
-            <><Mail className="mr-2 h-4 w-4" /> Send Email Notification</>
+            <><Mail className="mr-2 h-4 w-4" /> Notify Me of This Drop</>
           )}
         </Button>
       </CardFooter>
