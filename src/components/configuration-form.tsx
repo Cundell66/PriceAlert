@@ -22,19 +22,17 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useState, useTransition } from "react";
+import { saveConfigurationAction } from "@/lib/actions";
+import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
 });
 
-const hardcodedHeaders = {
-  "Accept": "application/json;api_version=2",
-  "User-Agent": "CruiseAboardTracker/1.2"
-};
-
 export function ConfigurationForm() {
   const [isPending, startTransition] = useTransition();
   const [isSuccess, setIsSuccess] = useState(false);
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -44,19 +42,18 @@ export function ConfigurationForm() {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    startTransition(() => {
-      // In a real app, you would save these values to a secure backend.
-      const configuration = {
-        apiUrl: process.env.API_ENDPOINT_URL,
-        headers: hardcodedHeaders,
-        email: values.email
-      }
-      console.log(configuration);
-      return new Promise(resolve => setTimeout(() => {
+    startTransition(async () => {
+      const result = await saveConfigurationAction(values.email);
+      if (result.success) {
         setIsSuccess(true);
-        resolve(true);
         setTimeout(() => setIsSuccess(false), 2000);
-      }, 1000));
+      } else {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: result.error,
+        });
+      }
     });
   }
 
@@ -68,7 +65,7 @@ export function ConfigurationForm() {
           Configuration
         </CardTitle>
         <CardDescription>
-          Enter your email for price drop notifications.
+          Enter your email for price drop notifications. The API endpoint and headers are pre-configured.
         </CardDescription>
       </CardHeader>
       <CardContent>
