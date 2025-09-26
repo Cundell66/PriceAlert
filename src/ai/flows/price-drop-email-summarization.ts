@@ -161,11 +161,12 @@ export const monitorPriceDrops = ai.defineFlow(
 
     console.log('Fetching current cruise prices...');
     const currentCruises = await fetchCruises();
-    const previousCruises = (context.flow.state?.['cruises/latest'] as Cruise[]) || [];
+    const previousCruises = (context?.flow?.state?.['cruises/latest'] as Cruise[]) || [];
 
     console.log(`Found ${currentCruises.length} current cruises.`);
     console.log(`Found ${previousCruises.length} previous cruises to compare against.`);
-
+    
+    let dropsFound = 0;
     if (previousCruises.length > 0) {
       for (const currentCruise of currentCruises) {
         const previousCruise = previousCruises.find(
@@ -177,6 +178,7 @@ export const monitorPriceDrops = ai.defineFlow(
           const previousPrice = parseFloat(previousCruise.cruise_only_price);
 
           if (currentPrice < previousPrice) {
+            dropsFound++;
             console.log(`Price drop detected for ${currentCruise.name}!`);
             const priceDropInfo: z.infer<typeof EmailNotificationSchema> = {
               shipName: currentCruise.ship_title,
@@ -187,7 +189,9 @@ export const monitorPriceDrops = ai.defineFlow(
               toEmail: toEmail,
             };
             // Save the latest price drop for the UI
-            context.flow.state['cruises/latest-drop'] = priceDropInfo;
+            if (context?.flow?.state) {
+              context.flow.state['cruises/latest-drop'] = priceDropInfo;
+            }
 
             await sendPriceDropEmail(priceDropInfo);
           }
@@ -195,8 +199,14 @@ export const monitorPriceDrops = ai.defineFlow(
       }
     }
 
-    console.log('Saving current cruise prices for next check...');
-    context.flow.state['cruises/latest'] = currentCruises;
+    if (dropsFound === 0) {
+        console.log("No price drops found on this run.");
+    }
+
+    if (context?.flow?.state) {
+        console.log('Saving current cruise prices for next check...');
+        context.flow.state['cruises/latest'] = currentCruises;
+    }
     console.log('Monitoring complete.');
   }
 );
