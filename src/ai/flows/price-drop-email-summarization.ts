@@ -12,7 +12,7 @@
 
 import { ai } from '@/ai/genkit';
 import { fetchCruises, type Cruise } from '@/lib/cruise-api';
-import { z } from 'genkit';
+import { z } from 'zod';
 import nodemailer from 'nodemailer';
 import clientPromise from '@/lib/mongodb';
 import { Collection } from 'mongodb';
@@ -28,9 +28,10 @@ const PriceDropInfoSchema = z.object({
 export type PriceDropInfo = z.infer<typeof PriceDropInfoSchema>;
 
 const PriceDropSummarySchema = z.object({
-  summary: z.string().describe('A user-friendly summary of the price drop, highlighting key details and potential savings.'),
+  summary: z.string().describe('A short, exciting summary of the price drop.'),
 });
 export type PriceDropSummary = z.infer<typeof PriceDropSummarySchema>;
+
 
 const EmailNotificationSchema = PriceDropInfoSchema.extend({
     toEmail: z.string().email().describe('The email address to send the notification to.'),
@@ -143,8 +144,8 @@ export const sendPriceDropEmail = ai.defineFlow(
       <ul>
         <li><b>Ship:</b> ${input.shipName}</li>
         <li><b>Date:</b> ${input.cruiseDate}</li>
-        <li><b>Previous Price:</b> $${input.priceFrom}</li>
-        <li><b>New Price:</b> $${input.priceTo}</li>
+        <li><b>Previous Price:</b> £${input.priceFrom}</li>
+        <li><b>New Price:</b> £${input.priceTo}</li>
       </ul>
       <p>Happy sailing!</p>
       <p>The CruiseCatcher Team</p>
@@ -210,7 +211,7 @@ export const monitorPriceDrops = ai.defineFlow(
             console.log(`Price drop detected for ${currentCruise.name}!`);
             const priceDropInfo: PriceDropInfo & {toEmail: string} = {
               shipName: currentCruise.ship_title,
-              cruiseDate: new Date(currentCruise.starts_on).toLocaleDateString(),
+              cruiseDate: new Date(currentCruise.starts_on).toLocaleDateString('en-GB'),
               vendorId: currentCruise.vendor_id,
               priceFrom: previousPrice,
               priceTo: currentPrice,
