@@ -5,4 +5,4 @@ This is a NextJS starter in Firebase Studio.
 To get started, take a look at src/app/page.tsx.
 
 
-moved image below alerts
+changed api call times to 5:45, 12:10 and 17:40
