@@ -208,22 +208,6 @@ export function PriceDropAlert() {
             </p>
           </div>
         </div>
-
-        <Separator />
-        <div className="relative aspect-[3/2] w-full rounded-lg overflow-hidden">
-          {cruiseImage ? (
-            <Image
-              src={cruiseImage.imageUrl}
-              alt={cruiseImage.description}
-              fill
-              className="object-cover"
-              data-ai-hint={cruiseImage.imageHint}
-            />
-          ) : (
-            <Skeleton className="h-full w-full" />
-          )}
-        </div>
-        
         <div>
           <h3 className="font-headline text-lg flex items-center gap-2 mb-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -241,6 +225,22 @@ export function PriceDropAlert() {
             </p>
           )}
         </div>
+
+        <Separator />
+        <div className="relative aspect-[3/2] w-full rounded-lg overflow-hidden">
+          {cruiseImage ? (
+            <Image
+              src={cruiseImage.imageUrl}
+              alt={cruiseImage.description}
+              fill
+              className="object-cover"
+              data-ai-hint={cruiseImage.imageHint}
+            />
+          ) : (
+            <Skeleton className="h-full w-full" />
+          )}
+        </div>
+        
       </CardContent>
       <CardFooter>
         <Button className="w-full" onClick={handleSendEmail} disabled={isSendingEmail || isEmailSuccess}>
