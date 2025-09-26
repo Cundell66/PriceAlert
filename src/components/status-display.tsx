@@ -57,7 +57,7 @@ export function StatusDisplay() {
     startSendTransition(async () => {
       const testData = {
         shipName: "Imaginary Voyager",
-        cruiseDate: new Date().toLocaleDateString('en-GB'),
+        cruiseDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
         vendorId: "TEST-001",
         priceFrom: 1000,
         priceTo: 800

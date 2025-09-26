@@ -197,14 +197,14 @@ export function PriceDropAlert() {
           <div className="text-center">
             <p className="text-sm text-muted-foreground">From</p>
             <p className="text-2xl font-bold line-through">
-              £{priceDrop.priceFrom}
+              £{priceDrop.priceFrom.toFixed(2)}
             </p>
           </div>
           <ArrowRight className="h-6 w-6 text-accent shrink-0" />
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Now</p>
             <p className="text-3xl font-bold text-accent">
-              £{priceDrop.priceTo}
+              £{priceDrop.priceTo.toFixed(2)}
             </p>
           </div>
         </div>

@@ -16,6 +16,7 @@ import { z } from 'zod';
 import nodemailer from 'nodemailer';
 import clientPromise from '@/lib/mongodb';
 import { Collection } from 'mongodb';
+import { format, parseISO } from 'date-fns';
 
 // Schemas for price drop information
 const PriceDropInfoSchema = z.object({
@@ -51,6 +52,26 @@ async function getCollection<T extends Document>(collectionName: string): Promis
     const client = await clientPromise;
     const db = client.db(); // Use default database from connection string
     return db.collection<T>(collectionName);
+}
+
+// Function to format date with ordinal
+function formatDateWithOrdinal(dateString: string): string {
+  try {
+    const date = parseISO(dateString);
+    const day = date.getDate();
+    let suffix = 'th';
+    if (day === 1 || day === 21 || day === 31) {
+      suffix = 'st';
+    } else if (day === 2 || day === 22) {
+      suffix = 'nd';
+    } else if (day === 3 || day === 23) {
+      suffix = 'rd';
+    }
+    return `${day}${suffix} ${format(date, 'MMMM yyyy')}`;
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return dateString; // Fallback to original string
+  }
 }
 
 // Prompt for summarizing price drops
@@ -144,8 +165,8 @@ export const sendPriceDropEmail = ai.defineFlow(
       <ul>
         <li><b>Ship:</b> ${input.shipName}</li>
         <li><b>Date:</b> ${input.cruiseDate}</li>
-        <li><b>Previous Price:</b> £${input.priceFrom}</li>
-        <li><b>New Price:</b> £${input.priceTo}</li>
+        <li><b>Previous Price:</b> £${input.priceFrom.toFixed(2)}</li>
+        <li><b>New Price:</b> £${input.priceTo.toFixed(2)}</li>
       </ul>
       <p>Happy sailing!</p>
       <p>The CruiseCatcher Team</p>
@@ -211,7 +232,7 @@ export const monitorPriceDrops = ai.defineFlow(
             console.log(`Price drop detected for ${currentCruise.name}!`);
             const priceDropInfo: PriceDropInfo & {toEmail: string} = {
               shipName: currentCruise.ship_title,
-              cruiseDate: new Date(currentCruise.starts_on).toLocaleDateString('en-GB'),
+              cruiseDate: formatDateWithOrdinal(currentCruise.starts_on),
               vendorId: currentCruise.vendor_id,
               priceFrom: previousPrice,
               priceTo: currentPrice,
