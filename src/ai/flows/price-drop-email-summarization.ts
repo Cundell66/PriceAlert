@@ -14,6 +14,9 @@ import { ai } from '@/ai/genkit';
 import { fetchCruises, type Cruise } from '@/lib/cruise-api';
 import { z } from 'genkit';
 import nodemailer from 'nodemailer';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
 
 // Schemas for price drop information
 const PriceDropInfoSchema = z.object({
@@ -33,6 +36,10 @@ export type PriceDropSummary = z.infer<typeof PriceDropSummarySchema>;
 const EmailNotificationSchema = PriceDropInfoSchema.extend({
     toEmail: z.string().email().describe('The email address to send the notification to.'),
 });
+
+// Firestore document reference
+const LATEST_CRUISES_DOC = doc(db, 'cruise-data', 'latest');
+const LATEST_DROP_DOC = doc(db, 'cruise-data', 'latest-drop');
 
 // Prompt for summarizing price drops
 const priceDropEmailSummarizationPrompt = ai.definePrompt({
@@ -151,7 +158,7 @@ export const monitorPriceDrops = ai.defineFlow(
     name: 'monitorPriceDrops',
     description: 'Monitors the cruise API for price drops and triggers alerts.',
   },
-  async (_, context) => {
+  async () => {
     const toEmail = process.env.NOTIFICATION_EMAIL;
 
     if (!toEmail) {
@@ -161,7 +168,9 @@ export const monitorPriceDrops = ai.defineFlow(
 
     console.log('Fetching current cruise prices...');
     const currentCruises = await fetchCruises();
-    const previousCruises = (context?.flow?.state?.['cruises/latest'] as Cruise[]) || [];
+    
+    const docSnap = await getDoc(LATEST_CRUISES_DOC);
+    const previousCruises = (docSnap.exists() ? docSnap.data().cruises : []) as Cruise[];
 
     console.log(`Found ${currentCruises.length} current cruises.`);
     console.log(`Found ${previousCruises.length} previous cruises to compare against.`);
@@ -188,10 +197,9 @@ export const monitorPriceDrops = ai.defineFlow(
               priceTo: currentPrice,
               toEmail: toEmail,
             };
-            // Save the latest price drop for the UI
-            if (context?.flow?.state) {
-              context.flow.state['cruises/latest-drop'] = priceDropInfo;
-            }
+            
+            // Save the latest price drop to Firestore for the UI
+            await setDoc(LATEST_DROP_DOC, priceDropInfo);
 
             await sendPriceDropEmail(priceDropInfo);
           }
@@ -203,10 +211,9 @@ export const monitorPriceDrops = ai.defineFlow(
         console.log("No price drops found on this run.");
     }
 
-    if (context?.flow?.state) {
-        console.log('Saving current cruise prices for next check...');
-        context.flow.state['cruises/latest'] = currentCruises;
-    }
+    console.log('Saving current cruise prices for next check...');
+    await setDoc(LATEST_CRUISES_DOC, { cruises: currentCruises });
+    
     console.log('Monitoring complete.');
   }
 );
@@ -218,8 +225,11 @@ export const getLatestPriceDrop = ai.defineFlow(
     description: 'Retrieves the most recent price drop from the flow state.',
     outputSchema: PriceDropInfoSchema.nullable(),
   },
-  async (_, context) => {
-    const latestDrop = context?.flow?.state?.['cruises/latest-drop'] as PriceDropInfo | undefined;
-    return latestDrop || null;
+  async () => {
+    const docSnap = await getDoc(LATEST_DROP_DOC);
+    if (docSnap.exists()) {
+        return docSnap.data() as PriceDropInfo;
+    }
+    return null;
   }
 );
