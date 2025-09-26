@@ -34,10 +34,11 @@ export async function sendEmailAction(priceDropInfo: PriceDropInfo) {
 export async function getLatestPriceDropAction() {
   try {
     const result = await getLatestPriceDrop();
+    // A null result here is not an error; it just means no drop has been recorded yet.
     return { success: true, data: result };
   } catch (error) {
     console.error("Error fetching latest price drop:", error);
-    return { success: false, error: "Failed to fetch latest price drop." };
+    return { success: false, error: "An unexpected error occurred while fetching the latest price drop." };
   }
 }
 
