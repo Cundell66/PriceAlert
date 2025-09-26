@@ -57,12 +57,16 @@ export function PriceDropAlert() {
             }
           }
           // If dropResult.data is null, it means no price drop has been detected yet.
-          // The component will render a message for this state, so no action is needed here.
+          // The component will now render a specific message for this state.
         } else {
           setError(dropResult.error || "Failed to fetch latest price drop.");
         }
       } catch (e) {
-        setError("An unexpected error occurred while fetching data.");
+        if (e instanceof Error) {
+            setError(`An unexpected error occurred: ${e.message}`);
+        } else {
+            setError("An unexpected error occurred while fetching data.");
+        }
         console.error(e);
       } finally {
         setIsLoading(false);
