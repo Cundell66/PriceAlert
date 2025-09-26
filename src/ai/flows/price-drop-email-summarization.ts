@@ -83,14 +83,14 @@ const priceDropEmailSummarizationPrompt = ai.definePrompt({
   output: { schema: PriceDropSummarySchema },
   prompt: `You are an expert in creating exciting and informative summaries for price drops on cruises.
 
-  Given the following information about a cruise price drop, generate a short, user-friendly summary that highlights the key details and potential savings. Emphasize the excitement of finding the best deal and direct it to an English audience, currency GBP and date format DD/MM/YYYY.
+  Given the following information about a cruise price drop, generate a short, user-friendly summary that highlights the key details and potential savings. Emphasize the excitement of finding the best deal and direct it to an English audience, currency GBP. The date is already formatted correctly.
 
   Ship Name: {{{shipName}}}
   Cruise Date: {{{cruiseDate}}}
   Cabin Grade: {{{cabinGrade}}}
   Vendor ID: {{{vendorId}}}
-  Original Price: {{{priceFrom}}}
-  New Price: {{{priceTo}}}
+  Original Price: £{{{priceFrom}}}
+  New Price: £{{{priceTo}}}
 
   Summary:`,
 });
@@ -100,7 +100,7 @@ const multiPriceDropEmailSummarizationPrompt = ai.definePrompt({
   name: 'multiPriceDropEmailSummarizationPrompt',
   input: { schema: EmailNotificationSchema },
   output: { schema: z.object({ subject: z.string(), body: z.string() }) },
-  prompt: `You are an expert travel agent's assistant, tasked with creating a compelling email newsletter about recent cruise price drops. The audience is English, and currency is GBP.
+  prompt: `You are an expert travel agent's assistant, tasked with creating a compelling email newsletter about recent cruise price drops. The audience is English, and currency is GBP. Dates are already formatted.
 
 You have detected the following price drops:
 {{#each priceDrops}}
