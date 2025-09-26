@@ -5,4 +5,4 @@ This is a NextJS starter in Firebase Studio.
 To get started, take a look at src/app/page.tsx.
 
 
-updated firebase firestore database and rules
+removed firebase firestore and added mongodb
