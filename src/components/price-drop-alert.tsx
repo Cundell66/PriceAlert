@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import Image from "next/image";
-import { generateSummaryAction, sendEmailAction, getRecentPriceDropsAction } from "@/lib/actions";
+import { generateSummaryAction } from "@/lib/actions";
 import type { PriceDropInfo } from "@/ai/flows/price-drop-email-summarization";
 import {
   Card,
@@ -30,6 +30,7 @@ import {
   Loader2,
   Check,
   Info,
+  BedDouble,
 } from "lucide-react";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,12 +38,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { getRecentPriceDropsAction } from "@/lib/actions";
 
 function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
   const [summary, setSummary] = useState<string | null>(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState(true);
-  const [isSendingEmail, startEmailTransition] = useTransition();
-  const [isEmailSuccess, setIsEmailSuccess] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,39 +57,30 @@ function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
     generateSummary();
   }, [priceDrop]);
 
-  const handleSendEmail = () => {
-    startEmailTransition(async () => {
-      const result = await sendEmailAction(priceDrop);
-      if (result.success) {
-        setIsEmailSuccess(true);
-        toast({
-          title: "Success",
-          description: "Email notification sent successfully!",
-        });
-        setTimeout(() => setIsEmailSuccess(false), 2000);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: result.error,
-        });
-      }
-    });
-  };
-
   const cruiseImage = PlaceHolderImages.find((img) => img.id === "cruise-ship");
 
   return (
     <Card className="overflow-hidden h-full flex flex-col">
       <CardHeader>
-        <CardTitle className="font-headline flex items-center gap-2">
-          <Ship className="h-5 w-5 text-muted-foreground" />
-          {priceDrop.shipName}
-        </CardTitle>
-        <CardDescription className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            {priceDrop.cruiseDate}
-        </CardDescription>
+        <div className="flex justify-between items-start">
+            <div>
+                <CardTitle className="font-headline flex items-center gap-2">
+                <Ship className="h-5 w-5 text-muted-foreground" />
+                {priceDrop.shipName}
+                </CardTitle>
+                <CardDescription className="flex items-center gap-2 mt-1">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    {priceDrop.cruiseDate}
+                </CardDescription>
+            </div>
+            <div className="text-right">
+                <div className="text-sm font-semibold flex items-center gap-2 justify-end">
+                    <BedDouble className="h-4 w-4 text-muted-foreground" />
+                    {priceDrop.cabinGrade}
+                </div>
+                <p className="text-xs text-muted-foreground">Cabin</p>
+            </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6 flex-grow">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 rounded-lg border bg-card p-4">
@@ -125,15 +116,6 @@ function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
         </div>
       </CardContent>
        <CardFooter className="flex-col items-stretch gap-4">
-        <Button className="w-full" onClick={handleSendEmail} disabled={isSendingEmail || isEmailSuccess}>
-          {isSendingEmail ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</>
-          ) : isEmailSuccess ? (
-            <><Check className="mr-2 h-4 w-4" /> Sent!</>
-          ) : (
-            <><Mail className="mr-2 h-4 w-4" /> Notify Me</>
-          )}
-        </Button>
          <p className="text-xs text-muted-foreground text-center">
             Drop detected on: {new Date(priceDrop.detectedAt).toLocaleDateString('en-GB')}
         </p>
@@ -251,7 +233,7 @@ export function PriceDropAlert() {
               The agent is actively monitoring for new price drops. We'll display recent ones here as soon as they're detected.
             </AlertDescription>
           </Alert>
-          <div className="relative aspect-[3/2] w-full rounded-lg overflow-hidden mb-6">
+          <div className="relative mt-4 aspect-[3/2] w-full rounded-lg overflow-hidden mb-6">
               {cruiseImage ? (
                 <Image
                   src={cruiseImage.imageUrl}

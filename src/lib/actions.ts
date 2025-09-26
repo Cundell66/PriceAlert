@@ -8,11 +8,9 @@ import {
   monitorPriceDrops,
 } from "@/ai/flows/price-drop-email-summarization";
 
-export async function generateSummaryAction(priceDropInfo: Omit<PriceDropInfo, 'detectedAt'>) {
+export async function generateSummaryAction(priceDropInfo: PriceDropInfo) {
   try {
-    // Add a dummy detectedAt to satisfy the schema for summarization
-    const fullPriceDropInfo = { ...priceDropInfo, detectedAt: new Date().toISOString() };
-    const result = await summarizePriceDrop(fullPriceDropInfo);
+    const result = await summarizePriceDrop(priceDropInfo);
     return { success: true, summary: result.summary };
   } catch (error) {
     console.error("Error generating summary:", error);
@@ -20,15 +18,36 @@ export async function generateSummaryAction(priceDropInfo: Omit<PriceDropInfo, '
   }
 }
 
-export async function sendEmailAction(priceDropInfo: Omit<PriceDropInfo, 'detectedAt'>) {
+export async function sendTestEmailAction() {
   try {
     const toEmail = process.env.NOTIFICATION_EMAIL;
     if (!toEmail) {
       return { success: false, error: "NOTIFICATION_EMAIL environment variable not set." };
     }
-     // Add a dummy detectedAt to satisfy the schema for sending email
-    const fullPriceDropInfo = { ...priceDropInfo, toEmail, detectedAt: new Date().toISOString() };
-    const result = await sendPriceDropEmail(fullPriceDropInfo);
+    
+    // Create a mock price drop list for the test email
+    const testPriceDrops: PriceDropInfo[] = [
+      {
+        shipName: "Imaginary Voyager",
+        cruiseDate: "1st January 2025",
+        vendorId: "TEST-001",
+        cabinGrade: "Balcony",
+        priceFrom: 1200,
+        priceTo: 950,
+        detectedAt: new Date().toISOString()
+      },
+      {
+        shipName: "Fantasy Seas",
+        cruiseDate: "15th February 2025",
+        vendorId: "TEST-002",
+        cabinGrade: "Suite",
+        priceFrom: 2500,
+        priceTo: 2200,
+        detectedAt: new Date().toISOString()
+      }
+    ];
+
+    const result = await sendPriceDropEmail({ toEmail, priceDrops: testPriceDrops });
     return { success: result.success };
   } catch (error) {
     console.error("Error sending email:", error);
@@ -57,11 +76,4 @@ export async function runCronJobAction() {
     console.error("Error running manual cron job:", error);
     return { success: false, error: `Cron job failed: ${error.message}` };
   }
-}
-
-export async function saveConfigurationAction(email: string) {
-    // This function is no longer used but kept to avoid breaking other parts of the example.
-    // In a real app, you might remove this entirely if configuration is only via .env
-    console.log("saveConfigurationAction is deprecated. Use environment variables.");
-    return { success: true };
 }

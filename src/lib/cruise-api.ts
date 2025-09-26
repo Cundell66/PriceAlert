@@ -5,8 +5,10 @@ export interface Cruise {
     name: string;
     ship_title: string;
     starts_on: string;
-    cruise_only_price: string;
-    // Add other relevant fields from the API response
+    inside_price: string;
+    outside_price: string;
+    balcony_price: string;
+    suite_price: string;
 }
 
 interface ApiResponse {

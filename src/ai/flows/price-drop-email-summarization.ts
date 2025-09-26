@@ -23,6 +23,7 @@ const PriceDropInfoSchema = z.object({
   shipName: z.string().describe('The name of the cruise ship.'),
   cruiseDate: z.string().describe('The date of the cruise.'),
   vendorId: z.string().describe('The vendor ID of the cruise.'),
+  cabinGrade: z.string().describe('The cabin grade for which the price dropped (e.g., Inside, Balcony).'),
   priceFrom: z.number().describe('The original price of the cruise.'),
   priceTo: z.number().describe('The new, reduced price of the cruise.'),
   detectedAt: z.string().describe('The timestamp when the drop was detected.'),
@@ -34,9 +35,9 @@ const PriceDropSummarySchema = z.object({
 });
 export type PriceDropSummary = z.infer<typeof PriceDropSummarySchema>;
 
-
-const EmailNotificationSchema = PriceDropInfoSchema.extend({
+const EmailNotificationSchema = z.object({
     toEmail: z.string().email().describe('The email address to send the notification to.'),
+    priceDrops: z.array(PriceDropInfoSchema).describe('A list of all detected price drops for this notification batch.')
 });
 
 
@@ -75,7 +76,7 @@ function formatDateWithOrdinal(dateString: string): string {
   }
 }
 
-// Prompt for summarizing price drops
+// Prompt for summarizing a single price drop
 const priceDropEmailSummarizationPrompt = ai.definePrompt({
   name: 'priceDropEmailSummarizationPrompt',
   input: { schema: PriceDropInfoSchema },
@@ -86,11 +87,32 @@ const priceDropEmailSummarizationPrompt = ai.definePrompt({
 
   Ship Name: {{{shipName}}}
   Cruise Date: {{{cruiseDate}}}
+  Cabin Grade: {{{cabinGrade}}}
   Vendor ID: {{{vendorId}}}
   Original Price: {{{priceFrom}}}
   New Price: {{{priceTo}}}
 
   Summary:`,
+});
+
+// Prompt for summarizing multiple price drops for a single email
+const multiPriceDropEmailSummarizationPrompt = ai.definePrompt({
+  name: 'multiPriceDropEmailSummarizationPrompt',
+  input: { schema: EmailNotificationSchema },
+  output: { schema: z.object({ subject: z.string(), body: z.string() }) },
+  prompt: `You are an expert travel agent's assistant, tasked with creating a compelling email newsletter about recent cruise price drops. The audience is English, and currency is GBP.
+
+You have detected the following price drops:
+{{#each priceDrops}}
+- Ship: {{{shipName}}}, Date: {{{cruiseDate}}}, Cabin: {{{cabinGrade}}}, Was: £{{{priceFrom}}}, Now: £{{{priceTo}}}
+{{/each}}
+
+Based on this data, write a friendly and exciting email for the recipient at {{{toEmail}}}.
+
+The email should have two parts:
+1.  **Subject Line**: Create a concise and catchy subject line that grabs attention.
+2.  **Email Body**: Write an HTML email body. Start with a friendly greeting. Briefly mention that you've found some great deals. Then, present the price drops in a clear, easy-to-read format (e.g., a list or styled cards). Conclude with a warm sign-off from "The CruiseCatcher Team".
+`,
 });
 
 // Flow to summarize a price drop
@@ -156,29 +178,21 @@ export const sendPriceDropEmail = ai.defineFlow(
         outputSchema: z.object({ success: z.boolean() }),
     },
     async (input) => {
-        const summaryResult = await summarizePriceDrop(input);
-
-        const emailBody = `
-      <p>Hi there!</p>
-      <p>Exciting news! We've detected a price drop on a cruise you might be interested in.</p>
-      <p><b>${summaryResult.summary}</b></p>
-      <p><b>Details:</b></p>
-      <ul>
-        <li><b>Ship:</b> ${input.shipName}</li>
-        <li><b>Date:</b> ${input.cruiseDate}</li>
-        <li><b>Previous Price:</b> £${input.priceFrom.toFixed(2)}</li>
-        <li><b>New Price:</b> £${input.priceTo.toFixed(2)}</li>
-      </ul>
-      <p>Happy sailing!</p>
-      <p>The CruiseCatcher Team</p>
-    `;
-
-        const emailSubject = `Price Drop Alert! ${input.shipName} is now cheaper!`;
+        if (input.priceDrops.length === 0) {
+            return { success: true }; // Nothing to send
+        }
+        
+        // Generate the consolidated email content
+        const { output: emailContent } = await multiPriceDropEmailSummarizationPrompt(input);
+        if (!emailContent) {
+             console.error('Failed to generate email content from AI prompt.');
+             return { success: false };
+        }
         
         const result = await sendEmailTool({
           to: input.toEmail,
-          subject: emailSubject,
-          body: emailBody
+          subject: emailContent.subject,
+          body: emailContent.body
         });
 
         return { success: result.success };
@@ -218,6 +232,7 @@ export const monitorPriceDrops = ai.defineFlow(
     console.log(`Found ${previousCruises.length} previous cruises to compare against.`);
     
     const detectedDrops: PriceDropInfo[] = [];
+    const cabinGrades: (keyof Cruise)[] = ['inside_price', 'outside_price', 'balcony_price', 'suite_price'];
 
     if (previousCruises.length > 0) {
       for (const currentCruise of currentCruises) {
@@ -226,21 +241,24 @@ export const monitorPriceDrops = ai.defineFlow(
         );
 
         if (previousCruise) {
-          const currentPrice = parseFloat(currentCruise.cruise_only_price);
-          const previousPrice = parseFloat(previousCruise.cruise_only_price);
+          for (const grade of cabinGrades) {
+            const currentPrice = parseFloat(currentCruise[grade]);
+            const previousPrice = parseFloat(previousCruise[grade]);
+            const gradeName = grade.replace('_price', '').replace(/^\w/, c => c.toUpperCase());
 
-          if (currentPrice < previousPrice) {
-            console.log(`Price drop detected for ${currentCruise.name}!`);
-            const priceDropInfo: PriceDropInfo = {
-              shipName: currentCruise.ship_title,
-              cruiseDate: formatDateWithOrdinal(currentCruise.starts_on),
-              vendorId: currentCruise.vendor_id,
-              priceFrom: previousPrice,
-              priceTo: currentPrice,
-              detectedAt: new Date().toISOString(),
-            };
-            
-            detectedDrops.push(priceDropInfo);
+            if (currentPrice > 0 && previousPrice > 0 && currentPrice < previousPrice) {
+              console.log(`Price drop for ${currentCruise.name} (${gradeName})! Was ${previousPrice}, now ${currentPrice}`);
+              const priceDropInfo: PriceDropInfo = {
+                shipName: currentCruise.ship_title,
+                cruiseDate: formatDateWithOrdinal(currentCruise.starts_on),
+                vendorId: currentCruise.vendor_id,
+                cabinGrade: gradeName,
+                priceFrom: previousPrice,
+                priceTo: currentPrice,
+                detectedAt: new Date().toISOString(),
+              };
+              detectedDrops.push(priceDropInfo);
+            }
           }
         }
       }
@@ -251,10 +269,9 @@ export const monitorPriceDrops = ai.defineFlow(
         // Save all new price drops to the database
         await priceDropsCollection.insertMany(detectedDrops as any);
 
-        // Send an email for each drop
-        for (const drop of detectedDrops) {
-            await sendPriceDropEmail({ ...drop, toEmail });
-        }
+        // Send one consolidated email for all drops
+        await sendPriceDropEmail({ toEmail, priceDrops: detectedDrops });
+
     } else {
         console.log("No price drops found on this run.");
     }

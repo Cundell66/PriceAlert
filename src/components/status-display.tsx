@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { sendEmailAction, runCronJobAction } from "@/lib/actions";
+import { sendTestEmailAction, runCronJobAction } from "@/lib/actions";
 import { Separator } from "@/components/ui/separator";
 
 export function StatusDisplay() {
@@ -27,7 +27,7 @@ export function StatusDisplay() {
     updateCheckTime(); // Set initial time
     
     // This is a mock interval for display purposes.
-    // The actual cron job runs on the server every 15 minutes.
+    // The actual cron job runs on the server.
     const intervalId = setInterval(updateCheckTime, 15 * 60 * 1000); 
 
     return () => clearInterval(intervalId);
@@ -55,15 +55,7 @@ export function StatusDisplay() {
 
   const handleSendTestEmail = () => {
     startSendTransition(async () => {
-      const testData = {
-        shipName: "Imaginary Voyager",
-        cruiseDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
-        vendorId: "TEST-001",
-        priceFrom: 1000,
-        priceTo: 800
-      };
-
-      const result = await sendEmailAction(testData);
+      const result = await sendTestEmailAction();
 
       if (result.success) {
         setIsSuccess(true);
@@ -96,7 +88,8 @@ export function StatusDisplay() {
           <p className="font-semibold text-foreground">Monitoring Active</p>
         </div>
         <div className="text-sm text-muted-foreground space-y-1">
-          <p>The service is checking for price drops every 15 minutes on the server.</p>
+          <p>The service is checking for price drops automatically on a schedule.</p>
+          <p>Next automatic checks at: 05:35, 12:10, 17:40 (GMT/UTC)</p>
           {lastChecked ? (
             <p>UI last updated: {lastChecked.toLocaleString()}</p>
           ) : (
