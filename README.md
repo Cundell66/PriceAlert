@@ -5,4 +5,4 @@ This is a NextJS starter in Firebase Studio.
 To get started, take a look at src/app/page.tsx.
 
 
-handling no drops found error better
+fixed zero cruises to compare
