@@ -12,7 +12,6 @@
 
 import { ai } from '@/ai/genkit';
 import { fetchCruises, type Cruise } from '@/lib/cruise-api';
-import { getStore } from 'genkit';
 import { z } from 'genkit';
 import nodemailer from 'nodemailer';
 
@@ -152,7 +151,7 @@ export const monitorPriceDrops = ai.defineFlow(
     name: 'monitorPriceDrops',
     description: 'Monitors the cruise API for price drops and triggers alerts.',
   },
-  async () => {
+  async (_, context) => {
     const toEmail = process.env.NOTIFICATION_EMAIL;
 
     if (!toEmail) {
@@ -160,10 +159,9 @@ export const monitorPriceDrops = ai.defineFlow(
       return;
     }
 
-    const store = getStore();
     console.log('Fetching current cruise prices...');
     const currentCruises = await fetchCruises();
-    const previousCruises = (await store.read<Cruise[]>('cruises/latest')) || [];
+    const previousCruises = (context.state['cruises/latest'] as Cruise[]) || [];
 
     console.log(`Found ${currentCruises.length} current cruises.`);
     console.log(`Found ${previousCruises.length} previous cruises to compare against.`);
@@ -189,7 +187,7 @@ export const monitorPriceDrops = ai.defineFlow(
               toEmail: toEmail,
             };
             // Save the latest price drop for the UI
-            await store.write('cruises/latest-drop', priceDropInfo);
+            context.state['cruises/latest-drop'] = priceDropInfo;
 
             await sendPriceDropEmail(priceDropInfo);
           }
@@ -198,7 +196,7 @@ export const monitorPriceDrops = ai.defineFlow(
     }
 
     console.log('Saving current cruise prices for next check...');
-    await store.write('cruises/latest', currentCruises);
+    context.state['cruises/latest'] = currentCruises;
     console.log('Monitoring complete.');
   }
 );
@@ -207,12 +205,11 @@ export const monitorPriceDrops = ai.defineFlow(
 export const getLatestPriceDrop = ai.defineFlow(
   {
     name: 'getLatestPriceDrop',
-    description: 'Retrieves the most recent price drop from the store.',
+    description: 'Retrieves the most recent price drop from the flow state.',
     outputSchema: PriceDropInfoSchema.nullable(),
   },
-  async () => {
-    const store = getStore();
-    const latestDrop = await store.read<PriceDropInfo>('cruises/latest-drop');
+  async (_, context) => {
+    const latestDrop = context.state['cruises/latest-drop'] as PriceDropInfo | undefined;
     return latestDrop || null;
   }
 );
