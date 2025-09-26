@@ -244,7 +244,14 @@ export function PriceDropAlert() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-           <div className="relative aspect-[3/2] w-full rounded-lg overflow-hidden mb-6">
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>No Price Drops Yet</AlertTitle>
+            <AlertDescription>
+              The agent is actively monitoring for new price drops. We'll display recent ones here as soon as they're detected.
+            </AlertDescription>
+          </Alert>
+          <div className="relative aspect-[3/2] w-full rounded-lg overflow-hidden mb-6">
               {cruiseImage ? (
                 <Image
                   src={cruiseImage.imageUrl}
@@ -257,13 +264,6 @@ export function PriceDropAlert() {
                 <Skeleton className="h-full w-full" />
               )}
             </div>
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertTitle>No Price Drops Yet</AlertTitle>
-            <AlertDescription>
-              The agent is actively monitoring for new price drops. We'll display recent ones here as soon as they're detected.
-            </AlertDescription>
-          </Alert>
         </CardContent>
       </Card>
     );
