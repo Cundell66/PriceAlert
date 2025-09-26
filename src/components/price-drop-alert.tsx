@@ -177,19 +177,6 @@ export function PriceDropAlert() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="relative aspect-[3/2] w-full rounded-lg overflow-hidden">
-          {cruiseImage ? (
-            <Image
-              src={cruiseImage.imageUrl}
-              alt={cruiseImage.description}
-              fill
-              className="object-cover"
-              data-ai-hint={cruiseImage.imageHint}
-            />
-          ) : (
-            <Skeleton className="h-full w-full" />
-          )}
-        </div>
 
         <div className="grid md:grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2">
@@ -223,6 +210,19 @@ export function PriceDropAlert() {
         </div>
 
         <Separator />
+        <div className="relative aspect-[3/2] w-full rounded-lg overflow-hidden">
+          {cruiseImage ? (
+            <Image
+              src={cruiseImage.imageUrl}
+              alt={cruiseImage.description}
+              fill
+              className="object-cover"
+              data-ai-hint={cruiseImage.imageHint}
+            />
+          ) : (
+            <Skeleton className="h-full w-full" />
+          )}
+        </div>
         
         <div>
           <h3 className="font-headline text-lg flex items-center gap-2 mb-2">
