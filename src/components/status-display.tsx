@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { Activity, Info, Mail, Loader2, Check } from "lucide-react";
+import { Activity, Info, Mail, Loader2, Check, RefreshCw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,12 +11,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { sendEmailAction } from "@/lib/actions";
+import { sendEmailAction, runCronJobAction } from "@/lib/actions";
+import { Separator } from "@/components/ui/separator";
 
 export function StatusDisplay() {
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [isSending, startSendTransition] = useTransition();
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isChecking, startCheckTransition] = useTransition();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -30,6 +32,26 @@ export function StatusDisplay() {
 
     return () => clearInterval(intervalId);
   }, []);
+
+  const handleRunCron = () => {
+    startCheckTransition(async () => {
+      const result = await runCronJobAction();
+      if (result.success) {
+        toast({
+          title: "Success!",
+          description: "Price check completed. The page will now refresh to show any new price drops.",
+        });
+        // Refresh the page to see the new data
+        window.location.reload();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.error || "Failed to run price check.",
+        });
+      }
+    });
+  }
 
   const handleSendTestEmail = () => {
     startSendTransition(async () => {
@@ -82,7 +104,19 @@ export function StatusDisplay() {
           )}
         </div>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex-col items-stretch gap-4">
+        <Button className="w-full" onClick={handleRunCron} disabled={isChecking}>
+          {isChecking ? (
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Checking...</>
+          ) : (
+            <><RefreshCw className="mr-2 h-4 w-4" /> Run Price Check Now</>
+          )}
+        </Button>
+        <div className="flex items-center gap-2">
+          <Separator className="flex-1" />
+          <span className="text-xs text-muted-foreground">For Testing</span>
+          <Separator className="flex-1" />
+        </div>
         <Button className="w-full" variant="outline" onClick={handleSendTestEmail} disabled={isSending}>
           {isSending ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</>

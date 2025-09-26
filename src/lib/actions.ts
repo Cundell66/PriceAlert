@@ -5,6 +5,7 @@ import {
   type PriceDropInfo,
   sendPriceDropEmail,
   getLatestPriceDrop,
+  monitorPriceDrops,
 } from "@/ai/flows/price-drop-email-summarization";
 
 export async function generateSummaryAction(priceDropInfo: PriceDropInfo) {
@@ -39,6 +40,18 @@ export async function getLatestPriceDropAction() {
   } catch (error) {
     console.error("Error fetching latest price drop:", error);
     return { success: false, error: "An unexpected error occurred while fetching the latest price drop." };
+  }
+}
+
+export async function runCronJobAction() {
+  try {
+    console.log("Manual cron job started: Checking for price drops...");
+    await monitorPriceDrops();
+    console.log("Manual cron job finished successfully.");
+    return { success: true, message: "Price drop check completed." };
+  } catch (error: any) {
+    console.error("Error running manual cron job:", error);
+    return { success: false, error: `Cron job failed: ${error.message}` };
   }
 }
 
