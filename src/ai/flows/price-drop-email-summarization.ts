@@ -42,7 +42,11 @@ const LATEST_CRUISES_COLLECTION = 'latestCruises';
 const LATEST_DROP_COLLECTION = 'latestPriceDrop';
 
 // Helper to get a collection
-async function getCollection<T>(collectionName: string): Promise<Collection<T>> {
+async function getCollection<T extends Document>(collectionName: string): Promise<Collection<T> | null> {
+    if (!clientPromise) {
+        console.warn('MongoDB not configured. Skipping collection retrieval.');
+        return null;
+    }
     const client = await clientPromise;
     const db = client.db(); // Use default database from connection string
     return db.collection<T>(collectionName);
@@ -176,6 +180,11 @@ export const monitorPriceDrops = ai.defineFlow(
     const latestCruisesCollection = await getCollection(LATEST_CRUISES_COLLECTION);
     const latestDropCollection = await getCollection(LATEST_DROP_COLLECTION);
     
+    if (!latestCruisesCollection || !latestDropCollection) {
+        console.log('Monitoring skipped: Database not configured.');
+        return;
+    }
+    
     console.log('Fetching current cruise prices...');
     const currentCruises = await fetchCruises();
     
@@ -245,6 +254,12 @@ export const getLatestPriceDrop = ai.defineFlow(
   },
   async () => {
     const latestDropCollection = await getCollection<PriceDropInfo>(LATEST_DROP_COLLECTION);
+    
+    if (!latestDropCollection) {
+        console.warn('MongoDB not configured. Cannot get latest price drop.');
+        return null;
+    }
+    
     const doc = await latestDropCollection.findOne({ _id: 'latest' });
 
     if (!doc) {
