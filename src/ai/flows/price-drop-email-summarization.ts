@@ -14,9 +14,8 @@ import { ai } from '@/ai/genkit';
 import { fetchCruises, type Cruise } from '@/lib/cruise-api';
 import { z } from 'genkit';
 import nodemailer from 'nodemailer';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-
+import clientPromise from '@/lib/mongodb';
+import { Collection } from 'mongodb';
 
 // Schemas for price drop information
 const PriceDropInfoSchema = z.object({
@@ -37,9 +36,17 @@ const EmailNotificationSchema = PriceDropInfoSchema.extend({
     toEmail: z.string().email().describe('The email address to send the notification to.'),
 });
 
-// Firestore document reference
-const LATEST_CRUISES_DOC = doc(db, 'cruise-data', 'latest');
-const LATEST_DROP_DOC = doc(db, 'cruise-data', 'latest-drop');
+
+// MongoDB Collection Names
+const LATEST_CRUISES_COLLECTION = 'latestCruises';
+const LATEST_DROP_COLLECTION = 'latestPriceDrop';
+
+// Helper to get a collection
+async function getCollection<T>(collectionName: string): Promise<Collection<T>> {
+    const client = await clientPromise;
+    const db = client.db(); // Use default database from connection string
+    return db.collection<T>(collectionName);
+}
 
 // Prompt for summarizing price drops
 const priceDropEmailSummarizationPrompt = ai.definePrompt({
@@ -91,7 +98,7 @@ const sendEmailTool = ai.defineTool(
              const transporter = nodemailer.createTransport({
                 host: process.env.SMTP_HOST,
                 port: parseInt(process.env.SMTP_PORT || "465"),
-                secure: parseInt(process.env.SMTP_PORT || "465") === 465, // true for 465, false for other ports
+                secure: parseInt(process.env.SMTP_PORT || "465") === 465,
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASSWORD,
@@ -166,11 +173,14 @@ export const monitorPriceDrops = ai.defineFlow(
       return;
     }
 
+    const latestCruisesCollection = await getCollection(LATEST_CRUISES_COLLECTION);
+    const latestDropCollection = await getCollection(LATEST_DROP_COLLECTION);
+    
     console.log('Fetching current cruise prices...');
     const currentCruises = await fetchCruises();
     
-    const docSnap = await getDoc(LATEST_CRUISES_DOC);
-    const previousCruises = (docSnap.exists() ? docSnap.data().cruises : []) as Cruise[];
+    const previousCruisesDoc = await latestCruisesCollection.findOne({ _id: 'latest' });
+    const previousCruises = (previousCruisesDoc ? previousCruisesDoc.cruises : []) as Cruise[];
 
     console.log(`Found ${currentCruises.length} current cruises.`);
     console.log(`Found ${previousCruises.length} previous cruises to compare against.`);
@@ -189,7 +199,7 @@ export const monitorPriceDrops = ai.defineFlow(
           if (currentPrice < previousPrice) {
             dropsFound++;
             console.log(`Price drop detected for ${currentCruise.name}!`);
-            const priceDropInfo: z.infer<typeof EmailNotificationSchema> = {
+            const priceDropInfo: PriceDropInfo & {toEmail: string} = {
               shipName: currentCruise.ship_title,
               cruiseDate: new Date(currentCruise.starts_on).toLocaleDateString(),
               vendorId: currentCruise.vendor_id,
@@ -198,8 +208,12 @@ export const monitorPriceDrops = ai.defineFlow(
               toEmail: toEmail,
             };
             
-            // Save the latest price drop to Firestore for the UI
-            await setDoc(LATEST_DROP_DOC, priceDropInfo);
+            // Save the latest price drop to MongoDB for the UI
+            await latestDropCollection.updateOne(
+                { _id: 'latest' },
+                { $set: priceDropInfo },
+                { upsert: true }
+            );
 
             await sendPriceDropEmail(priceDropInfo);
           }
@@ -212,7 +226,11 @@ export const monitorPriceDrops = ai.defineFlow(
     }
 
     console.log('Saving current cruise prices for next check...');
-    await setDoc(LATEST_CRUISES_DOC, { cruises: currentCruises });
+    await latestCruisesCollection.updateOne(
+        { _id: 'latest' },
+        { $set: { cruises: currentCruises } },
+        { upsert: true }
+    );
     
     console.log('Monitoring complete.');
   }
@@ -226,10 +244,16 @@ export const getLatestPriceDrop = ai.defineFlow(
     outputSchema: PriceDropInfoSchema.nullable(),
   },
   async () => {
-    const docSnap = await getDoc(LATEST_DROP_DOC);
-    if (docSnap.exists()) {
-        return docSnap.data() as PriceDropInfo;
+    const latestDropCollection = await getCollection<PriceDropInfo>(LATEST_DROP_COLLECTION);
+    const doc = await latestDropCollection.findOne({ _id: 'latest' });
+
+    if (!doc) {
+      return null;
     }
-    return null;
+
+    // remove the _id field before returning
+    const { _id, ...priceDropData } = doc as any;
+    
+    return priceDropData;
   }
 );
