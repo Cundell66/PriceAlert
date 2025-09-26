@@ -5,4 +5,4 @@ This is a NextJS starter in Firebase Studio.
 To get started, take a look at src/app/page.tsx.
 
 
-issues with cron job due to genkit
+handling no drops found error better
