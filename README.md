@@ -5,4 +5,4 @@ This is a NextJS starter in Firebase Studio.
 To get started, take a look at src/app/page.tsx.
 
 
-moved image to bottom
+changed API calls and added multiple price changes
