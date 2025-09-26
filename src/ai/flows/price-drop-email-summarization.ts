@@ -7,7 +7,7 @@
  * - PriceDropSummary - The return type for the summarizePriceDrop function.
  * - monitorPriceDrops - A flow that monitors the cruise API for price drops.
  * - sendPriceDropEmail - A flow that sends an email notification for a price drop.
- * - getLatestPriceDrop - A flow that retrieves the latest price drop.
+ * - getRecentPriceDrops - A flow that retrieves recent price drops.
  */
 
 import { ai } from '@/ai/genkit';
@@ -25,6 +25,7 @@ const PriceDropInfoSchema = z.object({
   vendorId: z.string().describe('The vendor ID of the cruise.'),
   priceFrom: z.number().describe('The original price of the cruise.'),
   priceTo: z.number().describe('The new, reduced price of the cruise.'),
+  detectedAt: z.string().describe('The timestamp when the drop was detected.'),
 });
 export type PriceDropInfo = z.infer<typeof PriceDropInfoSchema>;
 
@@ -41,7 +42,7 @@ const EmailNotificationSchema = PriceDropInfoSchema.extend({
 
 // MongoDB Collection Names
 const LATEST_CRUISES_COLLECTION = 'latestCruises';
-const LATEST_DROP_COLLECTION = 'latestPriceDrop';
+const PRICE_DROPS_COLLECTION = 'priceDrops';
 
 // Helper to get a collection
 async function getCollection<T extends Document>(collectionName: string): Promise<Collection<T> | null> {
@@ -200,9 +201,9 @@ export const monitorPriceDrops = ai.defineFlow(
     }
 
     const latestCruisesCollection = await getCollection(LATEST_CRUISES_COLLECTION);
-    const latestDropCollection = await getCollection(LATEST_DROP_COLLECTION);
+    const priceDropsCollection = await getCollection(PRICE_DROPS_COLLECTION);
     
-    if (!latestCruisesCollection || !latestDropCollection) {
+    if (!latestCruisesCollection || !priceDropsCollection) {
         console.log('Monitoring skipped: Database not configured.');
         return;
     }
@@ -216,7 +217,8 @@ export const monitorPriceDrops = ai.defineFlow(
     console.log(`Found ${currentCruises.length} current cruises.`);
     console.log(`Found ${previousCruises.length} previous cruises to compare against.`);
     
-    let dropsFound = 0;
+    const detectedDrops: PriceDropInfo[] = [];
+
     if (previousCruises.length > 0) {
       for (const currentCruise of currentCruises) {
         const previousCruise = previousCruises.find(
@@ -228,31 +230,32 @@ export const monitorPriceDrops = ai.defineFlow(
           const previousPrice = parseFloat(previousCruise.cruise_only_price);
 
           if (currentPrice < previousPrice) {
-            dropsFound++;
             console.log(`Price drop detected for ${currentCruise.name}!`);
-            const priceDropInfo: PriceDropInfo & {toEmail: string} = {
+            const priceDropInfo: PriceDropInfo = {
               shipName: currentCruise.ship_title,
               cruiseDate: formatDateWithOrdinal(currentCruise.starts_on),
               vendorId: currentCruise.vendor_id,
               priceFrom: previousPrice,
               priceTo: currentPrice,
-              toEmail: toEmail,
+              detectedAt: new Date().toISOString(),
             };
             
-            // Save the latest price drop to MongoDB for the UI
-            await latestDropCollection.updateOne(
-                { _id: 'latest' },
-                { $set: priceDropInfo },
-                { upsert: true }
-            );
-
-            await sendPriceDropEmail(priceDropInfo);
+            detectedDrops.push(priceDropInfo);
           }
         }
       }
     }
 
-    if (dropsFound === 0) {
+    if (detectedDrops.length > 0) {
+        console.log(`Found ${detectedDrops.length} new price drops. Saving and notifying...`);
+        // Save all new price drops to the database
+        await priceDropsCollection.insertMany(detectedDrops as any);
+
+        // Send an email for each drop
+        for (const drop of detectedDrops) {
+            await sendPriceDropEmail({ ...drop, toEmail });
+        }
+    } else {
         console.log("No price drops found on this run.");
     }
 
@@ -268,29 +271,37 @@ export const monitorPriceDrops = ai.defineFlow(
 );
 
 // Flow to retrieve the latest price drop
-export const getLatestPriceDrop = ai.defineFlow(
+export const getRecentPriceDrops = ai.defineFlow(
   {
-    name: 'getLatestPriceDrop',
-    description: 'Retrieves the most recent price drop from the flow state.',
-    outputSchema: PriceDropInfoSchema.nullable(),
+    name: 'getRecentPriceDrops',
+    description: 'Retrieves the most recent price drops.',
+    outputSchema: z.array(PriceDropInfoSchema),
   },
   async () => {
-    const latestDropCollection = await getCollection<PriceDropInfo>(LATEST_DROP_COLLECTION);
+    const priceDropsCollection = await getCollection<PriceDropInfo>(PRICE_DROPS_COLLECTION);
     
-    if (!latestDropCollection) {
-        console.warn('MongoDB not configured. Cannot get latest price drop.');
-        return null;
+    if (!priceDropsCollection) {
+        console.warn('MongoDB not configured. Cannot get recent price drops.');
+        return [];
     }
     
-    const doc = await latestDropCollection.findOne({ _id: 'latest' });
+    // Fetch the 10 most recent documents, sorted by detection time
+    const docs = await priceDropsCollection
+        .find()
+        .sort({ detectedAt: -1 })
+        .limit(10)
+        .toArray();
 
-    if (!doc) {
-      return null;
+    if (!docs || docs.length === 0) {
+      return [];
     }
 
     // remove the _id field before returning
-    const { _id, ...priceDropData } = doc as any;
+    const priceDrops = docs.map(doc => {
+        const { _id, ...rest } = doc as any;
+        return rest;
+    });
     
-    return priceDropData;
+    return priceDrops;
   }
 );

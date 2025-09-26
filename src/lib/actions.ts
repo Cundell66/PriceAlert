@@ -4,13 +4,15 @@ import {
   summarizePriceDrop,
   type PriceDropInfo,
   sendPriceDropEmail,
-  getLatestPriceDrop,
+  getRecentPriceDrops,
   monitorPriceDrops,
 } from "@/ai/flows/price-drop-email-summarization";
 
-export async function generateSummaryAction(priceDropInfo: PriceDropInfo) {
+export async function generateSummaryAction(priceDropInfo: Omit<PriceDropInfo, 'detectedAt'>) {
   try {
-    const result = await summarizePriceDrop(priceDropInfo);
+    // Add a dummy detectedAt to satisfy the schema for summarization
+    const fullPriceDropInfo = { ...priceDropInfo, detectedAt: new Date().toISOString() };
+    const result = await summarizePriceDrop(fullPriceDropInfo);
     return { success: true, summary: result.summary };
   } catch (error) {
     console.error("Error generating summary:", error);
@@ -18,13 +20,15 @@ export async function generateSummaryAction(priceDropInfo: PriceDropInfo) {
   }
 }
 
-export async function sendEmailAction(priceDropInfo: PriceDropInfo) {
+export async function sendEmailAction(priceDropInfo: Omit<PriceDropInfo, 'detectedAt'>) {
   try {
     const toEmail = process.env.NOTIFICATION_EMAIL;
     if (!toEmail) {
       return { success: false, error: "NOTIFICATION_EMAIL environment variable not set." };
     }
-    const result = await sendPriceDropEmail({ ...priceDropInfo, toEmail });
+     // Add a dummy detectedAt to satisfy the schema for sending email
+    const fullPriceDropInfo = { ...priceDropInfo, toEmail, detectedAt: new Date().toISOString() };
+    const result = await sendPriceDropEmail(fullPriceDropInfo);
     return { success: result.success };
   } catch (error) {
     console.error("Error sending email:", error);
@@ -32,14 +36,14 @@ export async function sendEmailAction(priceDropInfo: PriceDropInfo) {
   }
 }
 
-export async function getLatestPriceDropAction() {
+export async function getRecentPriceDropsAction() {
   try {
-    const result = await getLatestPriceDrop();
-    // A null result here is not an error; it just means no drop has been recorded yet.
+    const result = await getRecentPriceDrops();
+    // An empty array is a valid success case
     return { success: true, data: result };
   } catch (error) {
-    console.error("Error fetching latest price drop:", error);
-    return { success: false, error: "An unexpected error occurred while fetching the latest price drop." };
+    console.error("Error fetching recent price drops:", error);
+    return { success: false, error: "An unexpected error occurred while fetching recent price drops." };
   }
 }
 
