@@ -313,12 +313,18 @@ export const getRecentPriceDrops = ai.defineFlow(
       return [];
     }
 
-    // remove the _id field before returning
-    const priceDrops = docs.map(doc => {
+    // Filter out any documents that don't match the schema and remove _id
+    const validPriceDrops = docs.reduce((acc, doc) => {
         const { _id, ...rest } = doc as any;
-        return rest;
-    });
+        const parsed = PriceDropInfoSchema.safeParse(rest);
+        if (parsed.success) {
+            acc.push(parsed.data);
+        } else {
+            console.warn("Skipping invalid price drop document:", parsed.error);
+        }
+        return acc;
+    }, [] as PriceDropInfo[]);
     
-    return priceDrops;
+    return validPriceDrops;
   }
 );
