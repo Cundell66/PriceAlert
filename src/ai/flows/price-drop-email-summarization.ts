@@ -161,7 +161,7 @@ export const monitorPriceDrops = ai.defineFlow(
 
     console.log('Fetching current cruise prices...');
     const currentCruises = await fetchCruises();
-    const previousCruises = (context.state?.['cruises/latest'] as Cruise[]) || [];
+    const previousCruises = (context.flow.state?.['cruises/latest'] as Cruise[]) || [];
 
     console.log(`Found ${currentCruises.length} current cruises.`);
     console.log(`Found ${previousCruises.length} previous cruises to compare against.`);
@@ -187,7 +187,7 @@ export const monitorPriceDrops = ai.defineFlow(
               toEmail: toEmail,
             };
             // Save the latest price drop for the UI
-            context.state['cruises/latest-drop'] = priceDropInfo;
+            context.flow.state['cruises/latest-drop'] = priceDropInfo;
 
             await sendPriceDropEmail(priceDropInfo);
           }
@@ -196,9 +196,7 @@ export const monitorPriceDrops = ai.defineFlow(
     }
 
     console.log('Saving current cruise prices for next check...');
-    if(context.state) {
-        context.state['cruises/latest'] = currentCruises;
-    }
+    context.flow.state['cruises/latest'] = currentCruises;
     console.log('Monitoring complete.');
   }
 );
@@ -211,7 +209,7 @@ export const getLatestPriceDrop = ai.defineFlow(
     outputSchema: PriceDropInfoSchema.nullable(),
   },
   async (_, context) => {
-    const latestDrop = context?.state?.['cruises/latest-drop'] as PriceDropInfo | undefined;
+    const latestDrop = context?.flow?.state?.['cruises/latest-drop'] as PriceDropInfo | undefined;
     return latestDrop || null;
   }
 );
