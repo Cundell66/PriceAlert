@@ -81,7 +81,7 @@ const priceDropEmailSummarizationPrompt = ai.definePrompt({
   output: { schema: PriceDropSummarySchema },
   prompt: `You are an expert in creating exciting and informative summaries for price drops on cruises.
 
-  Given the following information about a cruise price drop, generate a short, user-friendly summary that highlights the key details and potential savings. Emphasize the excitement of finding the best deal.
+  Given the following information about a cruise price drop, generate a short, user-friendly summary that highlights the key details and potential savings. Emphasize the excitement of finding the best deal and direct it to an English audience, currency GBP and date format DD/MM/YYYY.
 
   Ship Name: {{{shipName}}}
   Cruise Date: {{{cruiseDate}}}
