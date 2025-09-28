@@ -31,7 +31,7 @@ export interface CruiseOffering {
 
 
 interface ApiResponse {
-    cruises: CruiseFromApi[];
+    cruises?: CruiseFromApi[];
     _links: {
         next?: {
             href: string;
@@ -63,9 +63,10 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                 throw new Error(`API request failed with status ${response.status}`);
             }
             const data: ApiResponse = await response.json();
+            const cruises = data.cruises || [];
 
             // Flatten the hierarchical structure
-            for (const cruise of data.cruises) {
+            for (const cruise of cruises) {
                 if (cruise.grades && Array.isArray(cruise.grades)) {
                     for (const grade of cruise.grades) {
                         // Only include offerings that have a valid price

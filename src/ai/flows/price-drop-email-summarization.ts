@@ -226,8 +226,14 @@ export const monitorPriceDrops = ai.defineFlow(
     console.log('Fetching current cruise prices...');
     const currentOfferings = await fetchCruises();
     
+    // Defensive check to ensure fetchCruises returned an array
+    if (!Array.isArray(currentOfferings)) {
+      console.error('fetchCruises did not return an array. Aborting monitoring run.');
+      return;
+    }
+    
     const previousCruisesDoc = await latestCruisesCollection.findOne({ _id: 'latest' });
-    const previousOfferings = (previousCruisesDoc ? previousCruisesDoc.offerings : []) as CruiseOffering[];
+    const previousOfferings = (previousCruisesDoc?.offerings || []) as CruiseOffering[];
 
     console.log(`Found ${currentOfferings.length} current cruise offerings.`);
     console.log(`Found ${previousOfferings.length} previous offerings to compare against.`);
