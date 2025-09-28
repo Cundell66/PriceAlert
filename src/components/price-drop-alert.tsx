@@ -31,6 +31,7 @@ import {
   Check,
   Info,
   BedDouble,
+  Tag,
 } from "lucide-react";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,7 +63,7 @@ function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
   return (
     <Card className="overflow-hidden h-full flex flex-col">
       <CardHeader>
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start gap-4">
             <div>
                 <CardTitle className="font-headline flex items-center gap-2">
                 <Ship className="h-5 w-5 text-muted-foreground" />
@@ -73,12 +74,12 @@ function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
                     {priceDrop.cruiseDate}
                 </CardDescription>
             </div>
-            <div className="text-right">
+            <div className="text-right flex-shrink-0">
                 <div className="text-sm font-semibold flex items-center gap-2 justify-end">
                     <BedDouble className="h-4 w-4 text-muted-foreground" />
-                    {priceDrop.cabinGrade}
+                    {priceDrop.gradeName}
                 </div>
-                <p className="text-xs text-muted-foreground">Cabin</p>
+                <p className="text-xs text-muted-foreground">Code: {priceDrop.gradeCode}</p>
             </div>
         </div>
       </CardHeader>
@@ -115,12 +116,13 @@ function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
           )}
         </div>
       </CardContent>
-       <CardFooter className="flex-col items-stretch gap-4">
-          <p className="text-xs text-muted-foreground text-center">
+       <CardFooter className="flex-col items-stretch gap-2 pt-4">
+         <div className="text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
+            <Tag className="h-3 w-3" />
             Vendor ID: {priceDrop.vendorId}
-         </p>
+         </div>
          <p className="text-xs text-muted-foreground text-center">
-            Drop detected on: {new Date(priceDrop.detectedAt).toLocaleDateString('en-GB')}
+            Drop detected on: {new Date(priceDrop.detectedAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
         </p>
       </CardFooter>
     </Card>

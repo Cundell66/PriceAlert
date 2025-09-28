@@ -1,18 +1,37 @@
 // src/lib/cruise-api.ts
 
-export interface Cruise {
+// Represents a single cabin grade with its pricing
+export interface Grade {
+    grade_code: string;
+    grade_name: string;
+    price: string;
+    // other fields like availability, etc., can be added here if needed
+}
+
+// Represents a cruise from the API, containing multiple grades
+export interface CruiseFromApi {
     vendor_id: string;
     name: string;
     ship_title: string;
     starts_on: string;
-    inside_price: string;
-    outside_price: string;
-    balcony_price: string;
-    suite_price: string;
+    grades: Grade[];
 }
 
+// Represents a flattened, unique cruise offering (1 cruise + 1 cabin grade)
+// This is the structure we'll use for comparisons.
+export interface CruiseOffering {
+    vendor_id: string;
+    grade_code: string;
+    name: string;
+    ship_title: string;
+    starts_on: string;
+    grade_name: string;
+    price: string;
+}
+
+
 interface ApiResponse {
-    cruises: Cruise[];
+    cruises: CruiseFromApi[];
     _links: {
         next?: {
             href: string;
@@ -28,11 +47,12 @@ const headers = {
 };
 
 /**
- * Fetches all cruises from the paginated API.
- * @returns A promise that resolves to an array of all cruises.
+ * Fetches all cruises from the paginated API and flattens the response
+ * into a list of unique cruise offerings (cruise + cabin grade).
+ * @returns A promise that resolves to an array of all cruise offerings.
  */
-export async function fetchCruises(): Promise<Cruise[]> {
-    let allCruises: Cruise[] = [];
+export async function fetchCruises(): Promise<CruiseOffering[]> {
+    let allOfferings: CruiseOffering[] = [];
     let nextUrl: string | undefined = API_ENDPOINT_URL;
 
     while (nextUrl) {
@@ -43,9 +63,28 @@ export async function fetchCruises(): Promise<Cruise[]> {
                 throw new Error(`API request failed with status ${response.status}`);
             }
             const data: ApiResponse = await response.json();
-            allCruises = allCruises.concat(data.cruises);
+
+            // Flatten the hierarchical structure
+            for (const cruise of data.cruises) {
+                if (cruise.grades && Array.isArray(cruise.grades)) {
+                    for (const grade of cruise.grades) {
+                        // Only include offerings that have a valid price
+                        if (grade.price && parseFloat(grade.price) > 0) {
+                            allOfferings.push({
+                                vendor_id: cruise.vendor_id,
+                                grade_code: grade.grade_code,
+                                name: cruise.name,
+                                ship_title: cruise.ship_title,
+                                starts_on: cruise.starts_on,
+                                grade_name: grade.grade_name,
+                                price: grade.price,
+                            });
+                        }
+                    }
+                }
+            }
             
-            // Check for a next link that isn't the same as the current URL to avoid infinite loops on some APIs
+            // Check for a next link that isn't the same as the current URL
             if(data._links.next && data._links.next.href !== nextUrl) {
                 nextUrl = data._links.next.href;
             } else {
@@ -54,11 +93,10 @@ export async function fetchCruises(): Promise<Cruise[]> {
 
         } catch (error) {
             console.error("Error fetching cruises:", error);
-            // Stop fetching if an error occurs on any page
             nextUrl = undefined; 
         }
     }
 
-    console.log(`Total cruises fetched: ${allCruises.length}`);
-    return allCruises;
+    console.log(`Total unique cruise offerings fetched: ${allOfferings.length}`);
+    return allOfferings;
 }

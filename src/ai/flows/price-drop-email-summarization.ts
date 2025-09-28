@@ -11,7 +11,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { fetchCruises, type Cruise } from '@/lib/cruise-api';
+import { fetchCruises, type CruiseOffering } from '@/lib/cruise-api';
 import { z } from 'zod';
 import nodemailer from 'nodemailer';
 import clientPromise from '@/lib/mongodb';
@@ -23,7 +23,8 @@ const PriceDropInfoSchema = z.object({
   shipName: z.string().describe('The name of the cruise ship.'),
   cruiseDate: z.string().describe('The date of the cruise.'),
   vendorId: z.string().describe('The vendor ID of the cruise.'),
-  cabinGrade: z.string().describe('The cabin grade for which the price dropped (e.g., Inside, Balcony).'),
+  gradeCode: z.string().describe('The specific code for the cabin grade.'),
+  gradeName: z.string().describe('The descriptive name of the cabin grade (e.g., Deluxe Balcony).'),
   priceFrom: z.number().describe('The original price of the cruise.'),
   priceTo: z.number().describe('The new, reduced price of the cruise.'),
   detectedAt: z.string().describe('The timestamp when the drop was detected.'),
@@ -87,7 +88,7 @@ const priceDropEmailSummarizationPrompt = ai.definePrompt({
 
   Ship Name: {{{shipName}}}
   Cruise Date: {{{cruiseDate}}}
-  Cabin Grade: {{{cabinGrade}}}
+  Cabin Description: {{{gradeName}}} (Code: {{{gradeCode}}})
   Vendor ID: {{{vendorId}}}
   Original Price: £{{{priceFrom}}}
   New Price: £{{{priceTo}}}
@@ -104,7 +105,7 @@ const multiPriceDropEmailSummarizationPrompt = ai.definePrompt({
 
 You have detected the following price drops:
 {{#each priceDrops}}
-- Ship: {{{shipName}}}, Date: {{{cruiseDate}}}, Cabin: {{{cabinGrade}}}, Was: £{{{priceFrom}}}, Now: £{{{priceTo}}}
+- Ship: {{{shipName}}}, Date: {{{cruiseDate}}}, Cabin: {{{gradeName}}} ({{{gradeCode}}}), Was: £{{{priceFrom}}}, Now: £{{{priceTo}}}
 {{/each}}
 
 Based on this data, write a friendly and exciting email for the recipient at {{{toEmail}}}.
@@ -214,8 +215,8 @@ export const monitorPriceDrops = ai.defineFlow(
       return;
     }
 
-    const latestCruisesCollection = await getCollection(LATEST_CRUISES_COLLECTION);
-    const priceDropsCollection = await getCollection(PRICE_DROPS_COLLECTION);
+    const latestCruisesCollection = await getCollection('latestCruises');
+    const priceDropsCollection = await getCollection('priceDrops');
     
     if (!latestCruisesCollection || !priceDropsCollection) {
         console.log('Monitoring skipped: Database not configured.');
@@ -223,43 +224,41 @@ export const monitorPriceDrops = ai.defineFlow(
     }
     
     console.log('Fetching current cruise prices...');
-    const currentCruises = await fetchCruises();
+    const currentOfferings = await fetchCruises();
     
     const previousCruisesDoc = await latestCruisesCollection.findOne({ _id: 'latest' });
-    const previousCruises = (previousCruisesDoc ? previousCruisesDoc.cruises : []) as Cruise[];
+    const previousOfferings = (previousCruisesDoc ? previousCruisesDoc.offerings : []) as CruiseOffering[];
 
-    console.log(`Found ${currentCruises.length} current cruises.`);
-    console.log(`Found ${previousCruises.length} previous cruises to compare against.`);
+    console.log(`Found ${currentOfferings.length} current cruise offerings.`);
+    console.log(`Found ${previousOfferings.length} previous offerings to compare against.`);
     
     const detectedDrops: PriceDropInfo[] = [];
-    const cabinGrades: (keyof Cruise)[] = ['inside_price', 'outside_price', 'balcony_price', 'suite_price'];
 
-    if (previousCruises.length > 0) {
-      for (const currentCruise of currentCruises) {
-        const previousCruise = previousCruises.find(
-          (c) => c.vendor_id === currentCruise.vendor_id
+    if (previousOfferings.length > 0) {
+      for (const current of currentOfferings) {
+        // Find the matching previous offering by vendor_id and grade_code
+        const previous = previousOfferings.find(
+          (p) => p.vendor_id === current.vendor_id && p.grade_code === current.grade_code
         );
 
-        if (previousCruise) {
-          for (const grade of cabinGrades) {
-            const currentPrice = parseFloat(currentCruise[grade]);
-            const previousPrice = parseFloat(previousCruise[grade]);
-            const gradeName = grade.replace('_price', '').replace(/^\w/, c => c.toUpperCase());
+        if (previous) {
+            const currentPrice = parseFloat(current.price);
+            const previousPrice = parseFloat(previous.price);
 
             if (currentPrice > 0 && previousPrice > 0 && currentPrice < previousPrice) {
-              console.log(`Price drop for ${currentCruise.name} (${gradeName})! Was ${previousPrice}, now ${currentPrice}`);
+              console.log(`Price drop for ${current.ship_title} (${current.grade_name})! Was ${previousPrice}, now ${currentPrice}`);
               const priceDropInfo: PriceDropInfo = {
-                shipName: currentCruise.ship_title,
-                cruiseDate: formatDateWithOrdinal(currentCruise.starts_on),
-                vendorId: currentCruise.vendor_id,
-                cabinGrade: gradeName,
+                shipName: current.ship_title,
+                cruiseDate: formatDateWithOrdinal(current.starts_on),
+                vendorId: current.vendor_id,
+                gradeCode: current.grade_code,
+                gradeName: current.grade_name,
                 priceFrom: previousPrice,
                 priceTo: currentPrice,
                 detectedAt: new Date().toISOString(),
               };
               detectedDrops.push(priceDropInfo);
             }
-          }
         }
       }
     }
@@ -276,10 +275,10 @@ export const monitorPriceDrops = ai.defineFlow(
         console.log("No price drops found on this run.");
     }
 
-    console.log('Saving current cruise prices for next check...');
+    console.log('Saving current cruise offerings for next check...');
     await latestCruisesCollection.updateOne(
         { _id: 'latest' },
-        { $set: { cruises: currentCruises } },
+        { $set: { offerings: currentOfferings } },
         { upsert: true }
     );
     
