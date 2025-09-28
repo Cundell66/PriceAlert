@@ -116,6 +116,9 @@ function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
         </div>
       </CardContent>
        <CardFooter className="flex-col items-stretch gap-4">
+          <p className="text-xs text-muted-foreground text-center">
+            Vendor ID: {priceDrop.vendorId}
+         </p>
          <p className="text-xs text-muted-foreground text-center">
             Drop detected on: {new Date(priceDrop.detectedAt).toLocaleDateString('en-GB')}
         </p>
