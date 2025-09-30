@@ -1,7 +1,7 @@
-
 // src/lib/cruise-api.ts
 
 export interface Fare {
+    deal_code: string; // e.g., 'BR1', 'FLA', 'AUREA'
     grade_code: string;
     grade_name: string;
     price: string;
@@ -17,20 +17,21 @@ export interface FareSet {
 // Represents a cruise from the API, containing multiple grades
 export interface CruiseFromApi {
     vendor_id: string;
-    name: string;
+    name:string;
     ship_title: string;
     starts_on: string;
     fare_sets: FareSet[];
     // ... other cruise properties
 }
 
-// Represents a flattened, unique cruise offering (1 cruise + 1 cabin grade)
+// Represents a flattened, unique cruise offering (1 cruise + 1 cabin grade + 1 deal)
 // This is the structure we'll use for comparisons.
 export interface CruiseOffering {
     offering_id: string; // A stable, unique ID for this specific offering
     vendor_id: string;
     ship_title: string;
     starts_on: string;
+    deal_code: string;
     grade_code: string;
     grade_name: string;
     price: string;
@@ -76,6 +77,7 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
             
             const data: ApiResponse = await response.json();
             const cruises = data.cruises || [];
+            console.log(`DEBUG: Found ${cruises.length} cruises on this page.`);
 
             // Flatten the hierarchical structure
             for (const cruise of cruises) {
@@ -84,16 +86,17 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                         if (fareSet.fares && Array.isArray(fareSet.fares)) {
                              for (const fare of fareSet.fares) {
                                 const price = parseFloat(fare.price);
-                                if (fare.grade_code && price > 0) {
-                                    const offering_id = `${cruise.vendor_id}|${fare.grade_code}`;
+                                // A fare must have a grade, a deal, and a positive price to be considered valid
+                                if (fare.grade_code && fare.deal_code && price > 0) {
+                                    // Create a stable, unique ID for this specific offering
+                                    const offering_id = `${cruise.vendor_id}|${fare.deal_code}|${fare.grade_code}`;
                                     
-                                    // Use a map to ensure we only have one entry per unique offering
-                                    // This prevents duplicates if the API returns them and stabilizes the data
                                     offeringsMap.set(offering_id, {
                                         offering_id,
                                         vendor_id: cruise.vendor_id,
                                         ship_title: cruise.ship_title,
                                         starts_on: cruise.starts_on,
+                                        deal_code: fare.deal_code,
                                         grade_code: fare.grade_code,
                                         grade_name: fare.grade_name,
                                         price: fare.price,
@@ -123,4 +126,3 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
     console.log(`Total unique cruise offerings fetched: ${allOfferings.length}`);
     return allOfferings;
 }
-

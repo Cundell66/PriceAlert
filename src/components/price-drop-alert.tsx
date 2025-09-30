@@ -33,6 +33,7 @@ import {
   Info,
   BedDouble,
   Tag,
+  Package,
 } from "lucide-react";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -75,10 +76,14 @@ function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
                     {priceDrop.cruiseDate}
                 </CardDescription>
             </div>
-            <div className="text-right flex-shrink-0">
+            <div className="text-right flex-shrink-0 space-y-1">
                 <div className="text-sm font-semibold flex items-center gap-2 justify-end">
                     <BedDouble className="h-4 w-4 text-muted-foreground" />
                     {priceDrop.gradeName} ({priceDrop.gradeCode})
+                </div>
+                <div className="text-xs font-semibold flex items-center gap-2 justify-end text-muted-foreground">
+                    <Package className="h-3 w-3" />
+                    {priceDrop.dealCode}
                 </div>
             </div>
         </div>
