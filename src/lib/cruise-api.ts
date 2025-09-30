@@ -1,3 +1,4 @@
+
 // src/lib/cruise-api.ts
 
 export interface Fare {
@@ -70,19 +71,11 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
 
             if (!response.ok) {
                 console.error(`API request to ${currentUrl} failed with status ${response.status}`);
-                const errorBody = await response.text();
-                console.error('API Error Body:', errorBody);
                 break;
             }
             
-            // Clone the response to log the raw text, as the body can only be read once
-            const responseClone = response.clone();
-            const rawText = await responseClone.text();
-            console.log(`DEBUG: Raw API response text from ${currentUrl}: ${rawText.substring(0, 500)}...`);
-
             const data: ApiResponse = await response.json();
             const cruises = data.cruises || [];
-            console.log(`DEBUG: Parsed JSON data:`, data);
             console.log(`DEBUG: Found ${cruises.length} cruises on this page.`);
 
             // Flatten the hierarchical structure
@@ -92,10 +85,15 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                         if (fareSet.fares && Array.isArray(fareSet.fares)) {
                              for (const fare of fareSet.fares) {
                                 const price = parseFloat(fare.price);
+                                
+                                // LOGGING TO THE EXTREME
+                                console.log(`---> Checking fare: deal_code='${fare.deal_code}', grade_code='${fare.grade_code}', price=${price}`);
+
                                 // A fare must have a grade, a deal, and a positive price to be considered valid
                                 if (fare.deal_code && fare.grade_code && price > 0) {
                                     // Create a stable, unique ID for this specific offering
                                     const offering_id = `${cruise.vendor_id}|${fare.deal_code}|${fare.grade_code}`;
+                                    console.log(`PASS: Creating offering with id: ${offering_id}`);
                                     
                                     offeringsMap.set(offering_id, {
                                         offering_id,
@@ -107,6 +105,8 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                                         grade_name: fare.grade_name,
                                         price: fare.price,
                                     });
+                                } else {
+                                    console.log(`FAIL: Fare did not meet validation criteria.`);
                                 }
                             }
                         }
