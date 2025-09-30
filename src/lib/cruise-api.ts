@@ -74,7 +74,7 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                 if (cruise.grades && Array.isArray(cruise.grades)) {
                     for (const grade of cruise.grades) {
                         // Only include offerings that have a valid price
-                        if (grade.price && parseFloat(grade.price) > 0) {
+                        if (grade.price && parseFloat(grade.price) > 0 && grade.grade_code && grade.grade_name) {
                             allOfferings.push({
                                 vendor_id: cruise.vendor_id,
                                 name: cruise.name,
