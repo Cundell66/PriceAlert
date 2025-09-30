@@ -9,7 +9,7 @@ export interface Fare {
 }
 
 export interface FareSet {
-    name: string; // This is the deal code, e.g. "Bella experience"
+    name: string; // This is the deal name, e.g. "Bella experience"
     fares: Fare[];
     // ... other fare set properties
 }
@@ -31,7 +31,7 @@ export interface CruiseOffering {
     vendor_id: string;
     ship_title: string;
     starts_on: string;
-    deal_code: string;
+    dealName: string;
     grade_code: string;
     grade_name: string;
     price: string;
@@ -79,22 +79,22 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
             for (const cruise of cruises) {
                 if (cruise.fare_sets && Array.isArray(cruise.fare_sets)) {
                     for (const fareSet of cruise.fare_sets) {
-                        const deal_code = fareSet.name; // The deal_code is the name of the fareSet
+                        const dealName = fareSet.name; // The deal name from the fareSet
                         if (fareSet.fares && Array.isArray(fareSet.fares)) {
                              for (const fare of fareSet.fares) {
                                 const price = parseFloat(fare.price);
                                 
                                 // A fare must have a deal, a grade, and a positive price to be considered valid
-                                if (deal_code && fare.grade_code && price > 0) {
+                                if (dealName && fare.grade_code && price > 0) {
                                     // Create a stable, unique ID for this specific offering
-                                    const offering_id = `${cruise.vendor_id}|${deal_code}|${fare.grade_code}`;
+                                    const offering_id = `${cruise.vendor_id}|${dealName}|${fare.grade_code}`;
                                     
                                     offeringsMap.set(offering_id, {
                                         offering_id,
                                         vendor_id: cruise.vendor_id,
                                         ship_title: cruise.ship_title,
                                         starts_on: cruise.starts_on,
-                                        deal_code: deal_code,
+                                        dealName: dealName,
                                         grade_code: fare.grade_code,
                                         grade_name: fare.grade_name,
                                         price: fare.price,
@@ -123,5 +123,6 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
     const allOfferings = Array.from(offeringsMap.values());
     return allOfferings;
 }
+
 
 

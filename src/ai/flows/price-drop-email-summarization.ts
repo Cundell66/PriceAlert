@@ -24,7 +24,7 @@ const PriceDropInfoSchema = z.object({
   shipName: z.string().describe('The name of the cruise ship.'),
   cruiseDate: z.string().describe('The date of the cruise.'),
   vendorId: z.string().describe('The vendor ID of the cruise.'),
-  dealCode: z.string().describe('The code for the specific deal or package.'),
+  dealName: z.string().describe('The name of the specific deal or package.'),
   gradeCode: z.string().describe('The specific code for the cabin grade (e.g., BR1).'),
   gradeName: z.string().describe('The descriptive name of the cabin grade (e.g., Inside, Balcony).'),
   priceFrom: z.number().describe('The original price of the cruise.'),
@@ -91,7 +91,7 @@ const priceDropEmailSummarizationPrompt = ai.definePrompt({
   Ship Name: {{{shipName}}}
   Cruise Date: {{{cruiseDate}}}
   Cabin Description: {{{gradeName}}} ({{{gradeCode}}})
-  Package: {{{dealCode}}}
+  Package: {{{dealName}}}
   Vendor ID: {{{vendorId}}}
   Original Price: £{{{priceFrom}}}
   New Price: £{{{priceTo}}}
@@ -108,7 +108,7 @@ const multiPriceDropEmailSummarizationPrompt = ai.definePrompt({
 
 You have detected the following price drops:
 {{#each priceDrops}}
-- Ship: {{{shipName}}}, Date: {{{cruiseDate}}}, Cabin: {{{gradeName}}} ({{{gradeCode}}}), Package: {{{dealCode}}}, Was: £{{{priceFrom}}}, Now: £{{{priceTo}}}
+- Ship: {{{shipName}}}, Date: {{{cruiseDate}}}, Cabin: {{{gradeName}}} ({{{gradeCode}}}), Package: {{{dealName}}}, Was: £{{{priceFrom}}}, Now: £{{{priceTo}}}
 {{/each}}
 
 Based on this data, write a friendly and exciting email for the recipient at {{{toEmail}}}.
@@ -258,12 +258,12 @@ export const monitorPriceDrops = ai.defineFlow(
 
             // Check for a meaningful price drop (at least 1 cent)
             if (currentPrice > 0 && previousPrice > 0 && (previousPrice - currentPrice) >= 0.01) {
-              console.log(`Price drop for ${current.ship_title} (${current.grade_name} / ${current.deal_code})! Was ${previousPrice}, now ${currentPrice}`);
+              console.log(`Price drop for ${current.ship_title} (${current.grade_name} / ${current.dealName})! Was ${previousPrice}, now ${currentPrice}`);
               const priceDropInfo: PriceDropInfo = {
                 shipName: current.ship_title,
                 cruiseDate: formatDateWithOrdinal(current.starts_on),
                 vendorId: current.vendor_id,
-                dealCode: current.deal_code,
+                dealName: current.dealName,
                 gradeCode: current.grade_code,
                 gradeName: current.grade_name,
                 priceFrom: previousPrice,
@@ -328,7 +328,6 @@ export const getRecentPriceDrops = ai.defineFlow(
     // Filter out any documents that don't match the schema
     const validPriceDrops = docs.reduce((acc, doc) => {
         const { _id, ...rest } = doc as any; // Exclude MongoDB's _id
-        console.log('DEBUG: Validating document from DB:', rest);
         const parsed = PriceDropInfoSchema.safeParse(rest);
         if (parsed.success) {
             acc.push(parsed.data);
@@ -341,3 +340,4 @@ export const getRecentPriceDrops = ai.defineFlow(
     return validPriceDrops;
   }
 );
+

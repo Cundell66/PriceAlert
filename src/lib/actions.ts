@@ -32,7 +32,7 @@ export async function sendTestEmailAction() {
         shipName: "Imaginary Voyager",
         cruiseDate: "1st January 2025",
         vendorId: "TEST-001",
-        dealCode: "DRINKS-INC",
+        dealName: "DRINKS-INC",
         gradeCode: "IV-BAL",
         gradeName: "Balcony",
         priceFrom: 1200,
@@ -43,7 +43,7 @@ export async function sendTestEmailAction() {
         shipName: "Fantasy Seas",
         cruiseDate: "15th February 2025",
         vendorId: "TEST-002",
-        dealCode: "NO-DRINKS",
+        dealName: "NO-DRINKS",
         gradeCode: "FS-SUI",
         gradeName: "Suite",
         priceFrom: 2500,
@@ -82,3 +82,4 @@ export async function runCronJobAction() {
     return { success: false, error: `Cron job failed: ${error.message}` };
   }
 }
+

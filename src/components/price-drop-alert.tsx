@@ -83,7 +83,7 @@ function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
                 </div>
                 <div className="text-xs font-semibold flex items-center gap-2 justify-end text-muted-foreground">
                     <Package className="h-3 w-3" />
-                    {priceDrop.dealCode}
+                    {priceDrop.dealName}
                 </div>
             </div>
         </div>
