@@ -7,3 +7,5 @@ To get started, take a look at src/app/page.tsx.
 lots of logs?
 
 "fare_sets" > "fares"
+
+refined comparison
