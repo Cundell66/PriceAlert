@@ -54,8 +54,10 @@ const headers = {
 export async function fetchCruises(): Promise<CruiseOffering[]> {
     let allOfferings: CruiseOffering[] = [];
     let nextUrl: string | undefined = API_ENDPOINT_URL;
+    let currentUrl = '';
 
-    while (nextUrl) {
+    while (nextUrl && nextUrl !== currentUrl) {
+        currentUrl = nextUrl;
         try {
             console.log(`Fetching data from: ${nextUrl}`);
             const response = await fetch(nextUrl, { headers });
@@ -86,7 +88,7 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
             }
             
             // Check for a next link that isn't the same as the current URL
-            if(data._links.next && data._links.next.href !== nextUrl) {
+            if(data._links.next) {
                 nextUrl = data._links.next.href;
             } else {
                 nextUrl = undefined;
