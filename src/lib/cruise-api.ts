@@ -54,13 +54,11 @@ const headers = {
 export async function fetchCruises(): Promise<CruiseOffering[]> {
     let allOfferings: CruiseOffering[] = [];
     let nextUrl: string | undefined = API_ENDPOINT_URL;
-    let currentUrl = '';
 
-    while (nextUrl && nextUrl !== currentUrl) {
-        currentUrl = nextUrl;
+    while (nextUrl) {
         try {
             console.log(`Fetching data from: ${nextUrl}`);
-            const response = await fetch(nextUrl, { headers: headers });
+            const response = await fetch(nextUrl, { headers }); // Pass headers here
             if (!response.ok) {
                 throw new Error(`API request failed with status ${response.status}`);
             }
@@ -87,16 +85,12 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                 }
             }
             
-            // Check for a next link that isn't the same as the current URL
-            if(data._links.next && data._links.next.href !== currentUrl) {
-                nextUrl = data._links.next.href;
-            } else {
-                nextUrl = undefined;
-            }
+            // Move to the next page if it exists
+            nextUrl = data._links?.next?.href;
 
         } catch (error) {
             console.error("Error fetching cruises:", error);
-            nextUrl = undefined; 
+            nextUrl = undefined; // Stop pagination on error
         }
     }
 
