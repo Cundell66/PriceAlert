@@ -11,3 +11,4 @@ confirmed comparison to be made on vendorid and cabingrade
 repaired cronjob error undefined 'length'
 restored API headers
 actually restored code
+sending header for pagination
