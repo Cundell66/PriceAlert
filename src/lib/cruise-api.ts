@@ -1,17 +1,26 @@
 
 // src/lib/cruise-api.ts
 
+export interface Fare {
+    grade_code: string;
+    grade_name: string;
+    price: string;
+    // ... other fare properties
+}
+
+export interface FareSet {
+    name: string;
+    fares: Fare[];
+    // ... other fare set properties
+}
+
 // Represents a cruise from the API, containing multiple grades
 export interface CruiseFromApi {
     vendor_id: string;
     name: string;
     ship_title: string;
     starts_on: string;
-    // The prices are properties on the cruise object itself
-    inside_price?: string;
-    outside_price?: string;
-    balcony_price?: string;
-    suite_price?: string;
+    fare_sets: FareSet[];
     // ... other cruise properties
 }
 
@@ -19,10 +28,10 @@ export interface CruiseFromApi {
 // This is the structure we'll use for comparisons.
 export interface CruiseOffering {
     vendor_id: string;
-    name: string;
     ship_title: string;
     starts_on: string;
-    grade_name: string; // "Inside", "Outside", "Balcony", "Suite"
+    grade_code: string;
+    grade_name: string;
     price: string;
 }
 
@@ -42,14 +51,6 @@ const headers = {
     "Accept": "application/json;api_version=2",
     "User-Agent": "CruiseAboardTracker/1.2"
 };
-
-const cabinPriceFields: { key: keyof CruiseFromApi, name: string }[] = [
-    { key: 'inside_price', name: 'Inside' },
-    { key: 'outside_price', name: 'Outside' },
-    { key: 'balcony_price', name: 'Balcony' },
-    { key: 'suite_price', name: 'Suite' },
-];
-
 
 /**
  * Fetches all cruises from the paginated API and flattens the response
@@ -72,26 +73,30 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                 break;
             }
             
-            const data: ApiResponse = await response.json();
+            const rawText = await response.text();
+            const data: ApiResponse = JSON.parse(rawText);
 
             const cruises = data.cruises || [];
-            console.log(`Found ${cruises.length} cruises on this page.`);
+            console.log(`DEBUG: Found ${cruises.length} cruises on this page.`);
 
             // Flatten the hierarchical structure
             for (const cruise of cruises) {
-                for (const cabin of cabinPriceFields) {
-                    const priceStr = cruise[cabin.key];
-                    if (priceStr) {
-                        const price = parseFloat(priceStr);
-                        if (price > 0) {
-                            allOfferings.push({
-                                vendor_id: cruise.vendor_id,
-                                name: cruise.name,
-                                ship_title: cruise.ship_title,
-                                starts_on: cruise.starts_on,
-                                grade_name: cabin.name,
-                                price: priceStr,
-                            });
+                if (cruise.fare_sets && Array.isArray(cruise.fare_sets)) {
+                    for (const fareSet of cruise.fare_sets) {
+                        if (fareSet.fares && Array.isArray(fareSet.fares)) {
+                             for (const fare of fareSet.fares) {
+                                const price = parseFloat(fare.price);
+                                if (fare.grade_code && price > 0) {
+                                    allOfferings.push({
+                                        vendor_id: cruise.vendor_id,
+                                        ship_title: cruise.ship_title,
+                                        starts_on: cruise.starts_on,
+                                        grade_code: fare.grade_code,
+                                        grade_name: fare.grade_name,
+                                        price: fare.price,
+                                    });
+                                }
+                            }
                         }
                     }
                 }

@@ -78,7 +78,7 @@ function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
             <div className="text-right flex-shrink-0">
                 <div className="text-sm font-semibold flex items-center gap-2 justify-end">
                     <BedDouble className="h-4 w-4 text-muted-foreground" />
-                    {priceDrop.gradeName}
+                    {priceDrop.gradeName} ({priceDrop.gradeCode})
                 </div>
             </div>
         </div>
