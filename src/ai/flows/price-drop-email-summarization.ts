@@ -322,14 +322,14 @@ export const getRecentPriceDrops = ai.defineFlow(
       return [];
     }
 
+    // Filter out any documents that don't match the schema
     const validPriceDrops = docs.reduce((acc, doc) => {
-        const { _id, ...rest } = doc as any;
+        const { _id, ...rest } = doc as any; // Exclude MongoDB's _id
         const parsed = PriceDropInfoSchema.safeParse(rest);
         if (parsed.success) {
             acc.push(parsed.data);
         } else {
-            console.warn("Skipping invalid price drop document:", doc);
-            console.warn("Zod validation error:", parsed.error);
+            console.warn("Skipping invalid price drop document:", parsed.error);
         }
         return acc;
     }, [] as PriceDropInfo[]);

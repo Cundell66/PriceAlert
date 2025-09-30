@@ -76,7 +76,6 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
             
             const data: ApiResponse = await response.json();
             const cruises = data.cruises || [];
-            console.log(`DEBUG: Found ${cruises.length} cruises on this page.`);
 
             // Flatten the hierarchical structure
             for (const cruise of cruises) {
@@ -89,7 +88,7 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                                     const offering_id = `${cruise.vendor_id}|${fare.grade_code}`;
                                     
                                     // Use a map to ensure we only have one entry per unique offering
-                                    // This prevents duplicates if the API returns them and stabilizes the order
+                                    // This prevents duplicates if the API returns them and stabilizes the data
                                     offeringsMap.set(offering_id, {
                                         offering_id,
                                         vendor_id: cruise.vendor_id,
@@ -124,3 +123,4 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
     console.log(`Total unique cruise offerings fetched: ${allOfferings.length}`);
     return allOfferings;
 }
+
