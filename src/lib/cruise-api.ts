@@ -119,3 +119,4 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
     console.log(`Total unique cruise offerings fetched: ${allOfferings.length}`);
     return allOfferings;
 }
+
