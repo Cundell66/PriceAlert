@@ -60,7 +60,7 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
         currentUrl = nextUrl;
         try {
             console.log(`Fetching data from: ${nextUrl}`);
-            const response = await fetch(nextUrl, { headers });
+            const response = await fetch(nextUrl, { headers: headers });
             if (!response.ok) {
                 throw new Error(`API request failed with status ${response.status}`);
             }
@@ -88,7 +88,7 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
             }
             
             // Check for a next link that isn't the same as the current URL
-            if(data._links.next) {
+            if(data._links.next && data._links.next.href !== currentUrl) {
                 nextUrl = data._links.next.href;
             } else {
                 nextUrl = undefined;
