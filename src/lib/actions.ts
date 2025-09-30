@@ -1,3 +1,4 @@
+
 "use server";
 
 import {
@@ -31,7 +32,8 @@ export async function sendTestEmailAction() {
         shipName: "Imaginary Voyager",
         cruiseDate: "1st January 2025",
         vendorId: "TEST-001",
-        cabinGrade: "Balcony",
+        gradeCode: "BV",
+        gradeName: "Balcony",
         priceFrom: 1200,
         priceTo: 950,
         detectedAt: new Date().toISOString()
@@ -40,7 +42,8 @@ export async function sendTestEmailAction() {
         shipName: "Fantasy Seas",
         cruiseDate: "15th February 2025",
         vendorId: "TEST-002",
-        cabinGrade: "Suite",
+        gradeCode: "S",
+        gradeName: "Suite",
         priceFrom: 2500,
         priceTo: 2200,
         detectedAt: new Date().toISOString()

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Summarizes price drop details for email notifications and handles monitoring.
@@ -281,12 +282,17 @@ export const monitorPriceDrops = ai.defineFlow(
         console.log("No price drops found on this run.");
     }
 
-    console.log('Saving current cruise offerings for next check...');
-    await latestCruisesCollection.updateOne(
-        { _id: 'latest' },
-        { $set: { offerings: currentOfferings } },
-        { upsert: true }
-    );
+    // Only update if we have new offerings
+    if (currentOfferings.length > 0) {
+        console.log('Saving current cruise offerings for next check...');
+        await latestCruisesCollection.updateOne(
+            { _id: 'latest' },
+            { $set: { offerings: currentOfferings } },
+            { upsert: true }
+        );
+    } else {
+        console.log('No new offerings to save. Keeping previous data.');
+    }
     
     console.log('Monitoring complete.');
   }

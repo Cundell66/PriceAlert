@@ -1,3 +1,4 @@
+
 // src/lib/cruise-api.ts
 
 // Represents a single cabin grade with its pricing
@@ -53,15 +54,18 @@ const headers = {
  */
 export async function fetchCruises(): Promise<CruiseOffering[]> {
     let allOfferings: CruiseOffering[] = [];
-    let nextUrl: string | undefined = API_ENDPOINT_URL;
+    let currentUrl: string | undefined = API_ENDPOINT_URL;
 
-    while (nextUrl) {
+    while (currentUrl) {
         try {
-            console.log(`Fetching data from: ${nextUrl}`);
-            const response = await fetch(nextUrl, { headers }); // Pass headers here
+            console.log(`Fetching data from: ${currentUrl}`);
+            const response = await fetch(currentUrl, { headers });
+
             if (!response.ok) {
-                throw new Error(`API request failed with status ${response.status}`);
+                console.error(`API request to ${currentUrl} failed with status ${response.status}`);
+                break; 
             }
+
             const data: ApiResponse = await response.json();
             const cruises = data.cruises || [];
 
@@ -73,10 +77,10 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                         if (grade.price && parseFloat(grade.price) > 0) {
                             allOfferings.push({
                                 vendor_id: cruise.vendor_id,
-                                grade_code: grade.grade_code,
                                 name: cruise.name,
                                 ship_title: cruise.ship_title,
                                 starts_on: cruise.starts_on,
+                                grade_code: grade.grade_code,
                                 grade_name: grade.grade_name,
                                 price: grade.price,
                             });
@@ -85,12 +89,17 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                 }
             }
             
-            // Move to the next page if it exists
-            nextUrl = data._links?.next?.href;
+            const nextUrl = data._links?.next?.href;
+
+            if (nextUrl && nextUrl !== currentUrl) {
+                currentUrl = nextUrl;
+            } else {
+                currentUrl = undefined; // End loop if no next link or it's same as current
+            }
 
         } catch (error) {
-            console.error("Error fetching cruises:", error);
-            nextUrl = undefined; // Stop pagination on error
+            console.error("Error fetching or parsing cruises:", error);
+            currentUrl = undefined; // Stop pagination on error
         }
     }
 
