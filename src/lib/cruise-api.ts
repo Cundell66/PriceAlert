@@ -124,3 +124,4 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
     return allOfferings;
 }
 
+
