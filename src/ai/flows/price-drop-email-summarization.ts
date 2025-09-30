@@ -320,6 +320,8 @@ export const getRecentPriceDrops = ai.defineFlow(
         .limit(10)
         .toArray();
 
+    console.log(`DEBUG: Fetched ${docs.length} raw documents from priceDrops collection.`);
+
     if (!docs || docs.length === 0) {
       return [];
     }
@@ -331,11 +333,13 @@ export const getRecentPriceDrops = ai.defineFlow(
         if (parsed.success) {
             acc.push(parsed.data);
         } else {
-            console.warn("Skipping invalid price drop document:", parsed.error);
+            console.warn("DEBUG: Skipping invalid price drop document:", doc);
+            console.warn("DEBUG: Zod validation error:", parsed.error);
         }
         return acc;
     }, [] as PriceDropInfo[]);
     
+    console.log(`DEBUG: Returning ${validPriceDrops.length} valid price drop documents.`);
     return validPriceDrops;
   }
 );

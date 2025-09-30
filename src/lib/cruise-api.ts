@@ -63,17 +63,26 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
 
             if (!response.ok) {
                 console.error(`API request to ${currentUrl} failed with status ${response.status}`);
+                const errorBody = await response.text();
+                console.error('API Error Body:', errorBody);
                 break; 
             }
 
-            const data: ApiResponse = await response.json();
+            const responseText = await response.text();
+            console.log(`DEBUG: Raw API response text from ${currentUrl}:`, responseText.substring(0, 500) + '...');
+            
+            const data: ApiResponse = JSON.parse(responseText);
+            console.log('DEBUG: Parsed JSON data:', data);
+
             const cruises = data.cruises || [];
+            console.log(`DEBUG: Found ${cruises.length} cruises on this page.`);
 
             // Flatten the hierarchical structure
             for (const cruise of cruises) {
                 if (cruise.grades && Array.isArray(cruise.grades)) {
                     for (const grade of cruise.grades) {
-                        // Only include offerings that have a valid price
+                        console.log('DEBUG: Processing grade:', grade);
+                        // Only include offerings that have a valid price and grade info
                         if (grade.price && parseFloat(grade.price) > 0 && grade.grade_code && grade.grade_name) {
                             allOfferings.push({
                                 vendor_id: cruise.vendor_id,
@@ -84,6 +93,8 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                                 grade_name: grade.grade_name,
                                 price: grade.price,
                             });
+                        } else {
+                            console.log('DEBUG: Skipping grade due to missing price or grade info:', grade);
                         }
                     }
                 }
@@ -106,3 +117,4 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
     console.log(`Total unique cruise offerings fetched: ${allOfferings.length}`);
     return allOfferings;
 }
+
