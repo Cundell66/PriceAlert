@@ -24,7 +24,8 @@ const PriceDropInfoSchema = z.object({
   shipName: z.string().describe('The name of the cruise ship.'),
   cruiseDate: z.string().describe('The date of the cruise.'),
   vendorId: z.string().describe('The vendor ID of the cruise.'),
-  dealName: z.string().describe('The name of the specific deal or package.'),
+  dealCode: z.string().describe('The specific code for the deal/package.'),
+  dealName: z.string().describe('The descriptive name of the deal or package.'),
   gradeCode: z.string().describe('The specific code for the cabin grade (e.g., BR1).'),
   gradeName: z.string().describe('The descriptive name of the cabin grade (e.g., Inside, Balcony).'),
   priceFrom: z.number().describe('The original price of the cruise.'),
@@ -263,6 +264,7 @@ export const monitorPriceDrops = ai.defineFlow(
                 shipName: current.ship_title,
                 cruiseDate: formatDateWithOrdinal(current.starts_on),
                 vendorId: current.vendor_id,
+                dealCode: current.dealCode,
                 dealName: current.dealName,
                 gradeCode: current.grade_code,
                 gradeName: current.grade_name,
@@ -340,4 +342,5 @@ export const getRecentPriceDrops = ai.defineFlow(
     return validPriceDrops;
   }
 );
+
 
