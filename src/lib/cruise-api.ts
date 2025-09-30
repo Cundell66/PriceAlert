@@ -2,7 +2,6 @@
 // src/lib/cruise-api.ts
 
 export interface Fare {
-    deal_code: string; // This is actually the fareSet.name
     grade_code: string;
     grade_name: string;
     price: string;
@@ -66,7 +65,6 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
 
     while (currentUrl) {
         try {
-            console.log(`Fetching data from: ${currentUrl}`);
             const response = await fetch(currentUrl, { headers });
 
             if (!response.ok) {
@@ -76,7 +74,6 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
             
             const data: ApiResponse = await response.json();
             const cruises = data.cruises || [];
-            console.log(`DEBUG: Found ${cruises.length} cruises on this page.`);
 
             // Flatten the hierarchical structure
             for (const cruise of cruises) {
@@ -124,6 +121,6 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
     }
 
     const allOfferings = Array.from(offeringsMap.values());
-    console.log(`Total unique cruise offerings fetched: ${allOfferings.length}`);
     return allOfferings;
 }
+
