@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -18,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Label } from "@/components/ui/label"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -336,16 +338,23 @@ const SidebarInput = React.forwardRef<
   React.ElementRef<typeof Input>,
   React.ComponentProps<typeof Input>
 >(({ className, ...props }, ref) => {
+  const id = React.useId()
   return (
-    <Input
-      ref={ref}
-      data-sidebar="input"
-      className={cn(
-        "h-8 w-full bg-background shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-        className
-      )}
-      {...props}
-    />
+    <div>
+      <Label htmlFor={id} className="sr-only">
+        Search
+      </Label>
+      <Input
+        ref={ref}
+        id={id}
+        data-sidebar="input"
+        className={cn(
+          "h-8 w-full bg-background shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          className
+        )}
+        {...props}
+      />
+    </div>
   )
 })
 SidebarInput.displayName = "SidebarInput"
@@ -761,3 +770,5 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
+    
