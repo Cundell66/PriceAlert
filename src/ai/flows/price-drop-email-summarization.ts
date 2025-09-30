@@ -227,7 +227,6 @@ export const monitorPriceDrops = ai.defineFlow(
     console.log('Fetching current cruise prices...');
     const currentOfferings = await fetchCruises();
     
-    // Defensive check to ensure fetchCruises returned an array
     if (!Array.isArray(currentOfferings)) {
       console.error('fetchCruises did not return an array. Aborting monitoring run.');
       return;
@@ -243,7 +242,6 @@ export const monitorPriceDrops = ai.defineFlow(
 
     if (previousOfferings.length > 0) {
       for (const current of currentOfferings) {
-        // Find the matching previous offering by vendor_id and grade_code
         const previous = previousOfferings.find(
           (p) => p.vendor_id === current.vendor_id && p.grade_code === current.grade_code
         );
@@ -252,7 +250,6 @@ export const monitorPriceDrops = ai.defineFlow(
             const currentPrice = parseFloat(current.price);
             const previousPrice = parseFloat(previous.price);
 
-            // Check for a meaningful price drop (at least 0.01) to avoid floating point issues
             if (currentPrice > 0 && previousPrice > 0 && (previousPrice - currentPrice) >= 0.01) {
               console.log(`Price drop for ${current.ship_title} (${current.grade_name})! Was ${previousPrice}, now ${currentPrice}`);
               const priceDropInfo: PriceDropInfo = {
@@ -272,18 +269,16 @@ export const monitorPriceDrops = ai.defineFlow(
     }
 
     if (detectedDrops.length > 0) {
-        console.log(`Found ${detectedDrops.length} new price drops. Saving and notifying...`);
-        // Save all new price drops to the database
-        await priceDropsCollection.insertMany(detectedDrops as any);
-
-        // Send one consolidated email for all drops
-        await sendPriceDropEmail({ toEmail, priceDrops: detectedDrops });
+        console.log(`Found ${detectedDrops.length} new price drops. Temporarily skipping save and notify for initialization.`);
+        // TEMPORARILY DISABLED FOR INITIALIZATION
+        // console.log(`Found ${detectedDrops.length} new price drops. Saving and notifying...`);
+        // await priceDropsCollection.insertMany(detectedDrops as any);
+        // await sendPriceDropEmail({ toEmail, priceDrops: detectedDrops });
 
     } else {
         console.log("No price drops found on this run.");
     }
 
-    // Only update if we have new offerings
     if (currentOfferings.length > 0) {
         console.log('Saving current cruise offerings for next check...');
         await latestCruisesCollection.updateOne(
@@ -314,7 +309,6 @@ export const getRecentPriceDrops = ai.defineFlow(
         return [];
     }
     
-    // Fetch the 10 most recent documents, sorted by detection time
     const docs = await priceDropsCollection
         .find()
         .sort({ detectedAt: -1 })
@@ -325,14 +319,12 @@ export const getRecentPriceDrops = ai.defineFlow(
       return [];
     }
 
-    // Filter out any documents that don't match the schema and remove _id
     const validPriceDrops = docs.reduce((acc, doc) => {
         const { _id, ...rest } = doc as any;
         const parsed = PriceDropInfoSchema.safeParse(rest);
         if (parsed.success) {
             acc.push(parsed.data);
         } else {
-            // This will log which documents are failing validation, which is useful for debugging
             console.warn("Skipping invalid price drop document:", doc);
             console.warn("Zod validation error:", parsed.error);
         }
@@ -342,5 +334,3 @@ export const getRecentPriceDrops = ai.defineFlow(
     return validPriceDrops;
   }
 );
-
-
