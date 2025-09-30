@@ -252,7 +252,8 @@ export const monitorPriceDrops = ai.defineFlow(
             const currentPrice = parseFloat(current.price);
             const previousPrice = parseFloat(previous.price);
 
-            if (currentPrice > 0 && previousPrice > 0 && currentPrice < previousPrice) {
+            // Check for a meaningful price drop (at least 0.01) to avoid floating point issues
+            if (currentPrice > 0 && previousPrice > 0 && (previousPrice - currentPrice) >= 0.01) {
               console.log(`Price drop for ${current.ship_title} (${current.grade_name})! Was ${previousPrice}, now ${currentPrice}`);
               const priceDropInfo: PriceDropInfo = {
                 shipName: current.ship_title,
@@ -341,4 +342,5 @@ export const getRecentPriceDrops = ai.defineFlow(
     return validPriceDrops;
   }
 );
+
 
