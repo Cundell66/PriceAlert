@@ -4,4 +4,4 @@ This is a NextJS starter in Firebase Studio.
 
 To get started, take a look at src/app/page.tsx.
 
-firebase is having a mare
+firebase is having a mare  updated updates?
