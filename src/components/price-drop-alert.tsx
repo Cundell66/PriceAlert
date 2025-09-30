@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
@@ -79,7 +80,6 @@ function SinglePriceDropCard({ priceDrop }: { priceDrop: PriceDropInfo }) {
                     <BedDouble className="h-4 w-4 text-muted-foreground" />
                     {priceDrop.gradeName}
                 </div>
-                <p className="text-xs text-muted-foreground">Code: {priceDrop.gradeCode}</p>
             </div>
         </div>
       </CardHeader>

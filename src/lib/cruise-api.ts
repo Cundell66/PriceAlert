@@ -1,32 +1,28 @@
 
 // src/lib/cruise-api.ts
 
-// Represents a single cabin grade with its pricing
-export interface Grade {
-    grade_code: string;
-    grade_name: string;
-    price: string;
-    // other fields like availability, etc., can be added here if needed
-}
-
 // Represents a cruise from the API, containing multiple grades
 export interface CruiseFromApi {
     vendor_id: string;
     name: string;
     ship_title: string;
     starts_on: string;
-    grades: Grade[];
+    // The prices are properties on the cruise object itself
+    inside_price?: string;
+    outside_price?: string;
+    balcony_price?: string;
+    suite_price?: string;
+    // ... other cruise properties
 }
 
 // Represents a flattened, unique cruise offering (1 cruise + 1 cabin grade)
 // This is the structure we'll use for comparisons.
 export interface CruiseOffering {
     vendor_id: string;
-    grade_code: string;
     name: string;
     ship_title: string;
     starts_on: string;
-    grade_name: string;
+    grade_name: string; // "Inside", "Outside", "Balcony", "Suite"
     price: string;
 }
 
@@ -47,6 +43,14 @@ const headers = {
     "User-Agent": "CruiseAboardTracker/1.2"
 };
 
+const cabinPriceFields: { key: keyof CruiseFromApi, name: string }[] = [
+    { key: 'inside_price', name: 'Inside' },
+    { key: 'outside_price', name: 'Outside' },
+    { key: 'balcony_price', name: 'Balcony' },
+    { key: 'suite_price', name: 'Suite' },
+];
+
+
 /**
  * Fetches all cruises from the paginated API and flattens the response
  * into a list of unique cruise offerings (cruise + cabin grade).
@@ -65,36 +69,29 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                 console.error(`API request to ${currentUrl} failed with status ${response.status}`);
                 const errorBody = await response.text();
                 console.error('API Error Body:', errorBody);
-                break; 
+                break;
             }
-
-            const responseText = await response.text();
-            console.log(`DEBUG: Raw API response text from ${currentUrl}:`, responseText.substring(0, 500) + '...');
             
-            const data: ApiResponse = JSON.parse(responseText);
-            console.log('DEBUG: Parsed JSON data:', data);
+            const data: ApiResponse = await response.json();
 
             const cruises = data.cruises || [];
-            console.log(`DEBUG: Found ${cruises.length} cruises on this page.`);
+            console.log(`Found ${cruises.length} cruises on this page.`);
 
             // Flatten the hierarchical structure
             for (const cruise of cruises) {
-                if (cruise.grades && Array.isArray(cruise.grades)) {
-                    for (const grade of cruise.grades) {
-                        console.log('DEBUG: Processing grade:', grade);
-                        // Only include offerings that have a valid price and grade info
-                        if (grade.price && parseFloat(grade.price) > 0 && grade.grade_code && grade.grade_name) {
+                for (const cabin of cabinPriceFields) {
+                    const priceStr = cruise[cabin.key];
+                    if (priceStr) {
+                        const price = parseFloat(priceStr);
+                        if (price > 0) {
                             allOfferings.push({
                                 vendor_id: cruise.vendor_id,
                                 name: cruise.name,
                                 ship_title: cruise.ship_title,
                                 starts_on: cruise.starts_on,
-                                grade_code: grade.grade_code,
-                                grade_name: grade.grade_name,
-                                price: grade.price,
+                                grade_name: cabin.name,
+                                price: priceStr,
                             });
-                        } else {
-                            console.log('DEBUG: Skipping grade due to missing price or grade info:', grade);
                         }
                     }
                 }
@@ -117,4 +114,3 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
     console.log(`Total unique cruise offerings fetched: ${allOfferings.length}`);
     return allOfferings;
 }
-

@@ -24,8 +24,7 @@ const PriceDropInfoSchema = z.object({
   shipName: z.string().describe('The name of the cruise ship.'),
   cruiseDate: z.string().describe('The date of the cruise.'),
   vendorId: z.string().describe('The vendor ID of the cruise.'),
-  gradeCode: z.string().describe('The specific code for the cabin grade.'),
-  gradeName: z.string().describe('The descriptive name of the cabin grade (e.g., Deluxe Balcony).'),
+  gradeName: z.string().describe('The descriptive name of the cabin grade (e.g., Inside, Balcony).'),
   priceFrom: z.number().describe('The original price of the cruise.'),
   priceTo: z.number().describe('The new, reduced price of the cruise.'),
   detectedAt: z.string().describe('The timestamp when the drop was detected.'),
@@ -89,7 +88,7 @@ const priceDropEmailSummarizationPrompt = ai.definePrompt({
 
   Ship Name: {{{shipName}}}
   Cruise Date: {{{cruiseDate}}}
-  Cabin Description: {{{gradeName}}} (Code: {{{gradeCode}}})
+  Cabin Description: {{{gradeName}}}
   Vendor ID: {{{vendorId}}}
   Original Price: £{{{priceFrom}}}
   New Price: £{{{priceTo}}}
@@ -106,7 +105,7 @@ const multiPriceDropEmailSummarizationPrompt = ai.definePrompt({
 
 You have detected the following price drops:
 {{#each priceDrops}}
-- Ship: {{{shipName}}}, Date: {{{cruiseDate}}}, Cabin: {{{gradeName}}} ({{{gradeCode}}}), Was: £{{{priceFrom}}}, Now: £{{{priceTo}}}
+- Ship: {{{shipName}}}, Date: {{{cruiseDate}}}, Cabin: {{{gradeName}}}, Was: £{{{priceFrom}}}, Now: £{{{priceTo}}}
 {{/each}}
 
 Based on this data, write a friendly and exciting email for the recipient at {{{toEmail}}}.
@@ -243,9 +242,9 @@ export const monitorPriceDrops = ai.defineFlow(
 
     if (previousOfferings.length > 0) {
       for (const current of currentOfferings) {
-        // Find the matching previous offering by vendor_id and grade_code
+        // Find the matching previous offering by vendor_id and grade_name
         const previous = previousOfferings.find(
-          (p) => p.vendor_id === current.vendor_id && p.grade_code === current.grade_code
+          (p) => p.vendor_id === current.vendor_id && p.grade_name === current.grade_name
         );
 
         if (previous) {
@@ -258,7 +257,6 @@ export const monitorPriceDrops = ai.defineFlow(
                 shipName: current.ship_title,
                 cruiseDate: formatDateWithOrdinal(current.starts_on),
                 vendorId: current.vendor_id,
-                gradeCode: current.grade_code,
                 gradeName: current.grade_name,
                 priceFrom: previousPrice,
                 priceTo: currentPrice,
@@ -320,8 +318,6 @@ export const getRecentPriceDrops = ai.defineFlow(
         .limit(10)
         .toArray();
 
-    console.log(`DEBUG: Fetched ${docs.length} raw documents from priceDrops collection.`);
-
     if (!docs || docs.length === 0) {
       return [];
     }
@@ -333,13 +329,13 @@ export const getRecentPriceDrops = ai.defineFlow(
         if (parsed.success) {
             acc.push(parsed.data);
         } else {
-            console.warn("DEBUG: Skipping invalid price drop document:", doc);
-            console.warn("DEBUG: Zod validation error:", parsed.error);
+            // This will log which documents are failing validation, which is useful for debugging
+            console.warn("Skipping invalid price drop document:", doc);
+            console.warn("Zod validation error:", parsed.error);
         }
         return acc;
     }, [] as PriceDropInfo[]);
     
-    console.log(`DEBUG: Returning ${validPriceDrops.length} valid price drop documents.`);
     return validPriceDrops;
   }
 );
