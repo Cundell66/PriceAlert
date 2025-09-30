@@ -56,7 +56,7 @@ const headers = {
 
 /**
  * Fetches all cruises from the paginated API and flattens the response
- * into a list of unique cruise offerings (cruise + cabin grade).
+ * into a list of unique cruise offerings (cruise + cabin grade + deal).
  * @returns A promise that resolves to an array of all cruise offerings.
  */
 export async function fetchCruises(): Promise<CruiseOffering[]> {
@@ -75,8 +75,14 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                 break;
             }
             
+            // Clone the response to log the raw text, as the body can only be read once
+            const responseClone = response.clone();
+            const rawText = await responseClone.text();
+            console.log(`DEBUG: Raw API response text from ${currentUrl}: ${rawText.substring(0, 500)}...`);
+
             const data: ApiResponse = await response.json();
             const cruises = data.cruises || [];
+            console.log(`DEBUG: Parsed JSON data:`, data);
             console.log(`DEBUG: Found ${cruises.length} cruises on this page.`);
 
             // Flatten the hierarchical structure
@@ -87,7 +93,7 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                              for (const fare of fareSet.fares) {
                                 const price = parseFloat(fare.price);
                                 // A fare must have a grade, a deal, and a positive price to be considered valid
-                                if (fare.grade_code && fare.deal_code && price > 0) {
+                                if (fare.deal_code && fare.grade_code && price > 0) {
                                     // Create a stable, unique ID for this specific offering
                                     const offering_id = `${cruise.vendor_id}|${fare.deal_code}|${fare.grade_code}`;
                                     

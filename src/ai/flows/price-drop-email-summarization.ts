@@ -328,6 +328,7 @@ export const getRecentPriceDrops = ai.defineFlow(
     // Filter out any documents that don't match the schema
     const validPriceDrops = docs.reduce((acc, doc) => {
         const { _id, ...rest } = doc as any; // Exclude MongoDB's _id
+        console.log('DEBUG: Validating document from DB:', rest);
         const parsed = PriceDropInfoSchema.safeParse(rest);
         if (parsed.success) {
             acc.push(parsed.data);
