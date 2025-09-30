@@ -240,16 +240,21 @@ export const monitorPriceDrops = ai.defineFlow(
     
     const detectedDrops: PriceDropInfo[] = [];
 
+    // Use a Map for efficient lookup of previous offerings
+    const previousOfferingsMap = new Map<string, CruiseOffering>();
+    for (const offering of previousOfferings) {
+        previousOfferingsMap.set(offering.offering_id, offering);
+    }
+
     if (previousOfferings.length > 0) {
       for (const current of currentOfferings) {
-        const previous = previousOfferings.find(
-          (p) => p.vendor_id === current.vendor_id && p.grade_code === current.grade_code
-        );
+        const previous = previousOfferingsMap.get(current.offering_id);
 
         if (previous) {
             const currentPrice = parseFloat(current.price);
             const previousPrice = parseFloat(previous.price);
 
+            // Check for a meaningful price drop (at least 1 cent)
             if (currentPrice > 0 && previousPrice > 0 && (previousPrice - currentPrice) >= 0.01) {
               console.log(`Price drop for ${current.ship_title} (${current.grade_name})! Was ${previousPrice}, now ${currentPrice}`);
               const priceDropInfo: PriceDropInfo = {
@@ -269,11 +274,9 @@ export const monitorPriceDrops = ai.defineFlow(
     }
 
     if (detectedDrops.length > 0) {
-        console.log(`Found ${detectedDrops.length} new price drops. Temporarily skipping save and notify for initialization.`);
-        // TEMPORARILY DISABLED FOR INITIALIZATION
-        // console.log(`Found ${detectedDrops.length} new price drops. Saving and notifying...`);
-        // await priceDropsCollection.insertMany(detectedDrops as any);
-        // await sendPriceDropEmail({ toEmail, priceDrops: detectedDrops });
+        console.log(`Found ${detectedDrops.length} new price drops. Saving and notifying...`);
+        await priceDropsCollection.insertMany(detectedDrops as any);
+        await sendPriceDropEmail({ toEmail, priceDrops: detectedDrops });
 
     } else {
         console.log("No price drops found on this run.");

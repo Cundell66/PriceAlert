@@ -27,6 +27,7 @@ export interface CruiseFromApi {
 // Represents a flattened, unique cruise offering (1 cruise + 1 cabin grade)
 // This is the structure we'll use for comparisons.
 export interface CruiseOffering {
+    offering_id: string; // A stable, unique ID for this specific offering
     vendor_id: string;
     ship_title: string;
     starts_on: string;
@@ -58,7 +59,7 @@ const headers = {
  * @returns A promise that resolves to an array of all cruise offerings.
  */
 export async function fetchCruises(): Promise<CruiseOffering[]> {
-    let allOfferings: CruiseOffering[] = [];
+    const offeringsMap = new Map<string, CruiseOffering>();
     let currentUrl: string | undefined = API_ENDPOINT_URL;
 
     while (currentUrl) {
@@ -73,9 +74,7 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                 break;
             }
             
-            const rawText = await response.text();
-            const data: ApiResponse = JSON.parse(rawText);
-
+            const data: ApiResponse = await response.json();
             const cruises = data.cruises || [];
             console.log(`DEBUG: Found ${cruises.length} cruises on this page.`);
 
@@ -87,7 +86,12 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
                              for (const fare of fareSet.fares) {
                                 const price = parseFloat(fare.price);
                                 if (fare.grade_code && price > 0) {
-                                    allOfferings.push({
+                                    const offering_id = `${cruise.vendor_id}|${fare.grade_code}`;
+                                    
+                                    // Use a map to ensure we only have one entry per unique offering
+                                    // This prevents duplicates if the API returns them and stabilizes the order
+                                    offeringsMap.set(offering_id, {
+                                        offering_id,
                                         vendor_id: cruise.vendor_id,
                                         ship_title: cruise.ship_title,
                                         starts_on: cruise.starts_on,
@@ -116,7 +120,7 @@ export async function fetchCruises(): Promise<CruiseOffering[]> {
         }
     }
 
+    const allOfferings = Array.from(offeringsMap.values());
     console.log(`Total unique cruise offerings fetched: ${allOfferings.length}`);
     return allOfferings;
 }
-
