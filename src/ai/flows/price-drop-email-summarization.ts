@@ -205,11 +205,12 @@ export const sendPriceDropEmail = ai.defineFlow(
 );
 
 
-// Main monitoring flow
+/**
+ * Monitors the cruise API for price drops and triggers alerts.
+ */
 export const monitorPriceDrops = ai.defineFlow(
   {
     name: 'monitorPriceDrops',
-    description: 'Monitors the cruise API for price drops and triggers alerts.',
   },
   async () => {
     const toEmail = process.env.NOTIFICATION_EMAIL;
@@ -235,7 +236,7 @@ export const monitorPriceDrops = ai.defineFlow(
       return;
     }
     
-    const previousCruisesDoc = await latestCruisesCollection.findOne({ _id: 'latest' });
+    const previousCruisesDoc = await latestCruisesCollection.findOne({ _id: 'latest' } as any);
     const previousOfferings = (previousCruisesDoc?.offerings || []) as CruiseOffering[];
 
     console.log(`Found ${currentOfferings.length} current cruise offerings.`);
@@ -290,7 +291,7 @@ export const monitorPriceDrops = ai.defineFlow(
     if (currentOfferings.length > 0) {
         console.log('Saving current cruise offerings for next check...');
         await latestCruisesCollection.updateOne(
-            { _id: 'latest' },
+            { _id: 'latest' } as any,
             { $set: { offerings: currentOfferings } },
             { upsert: true }
         );
@@ -342,5 +343,6 @@ export const getRecentPriceDrops = ai.defineFlow(
     return validPriceDrops;
   }
 );
+
 
 
