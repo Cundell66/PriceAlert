@@ -16,7 +16,7 @@ import { fetchCruises, type CruiseOffering } from '@/lib/cruise-api';
 import { z } from 'zod';
 import nodemailer from 'nodemailer';
 import clientPromise from '@/lib/mongodb';
-import { Collection } from 'mongodb';
+import { Collection, WithId } from 'mongodb';
 import { format, parseISO } from 'date-fns';
 
 // Schemas for price drop information
@@ -48,6 +48,10 @@ const EmailNotificationSchema = z.object({
 // MongoDB Collection Names
 const LATEST_CRUISES_COLLECTION = 'latestCruises';
 const PRICE_DROPS_COLLECTION = 'priceDrops';
+
+interface LatestCruisesDoc {
+  offerings: CruiseOffering[];
+}
 
 // Helper to get a collection
 async function getCollection<T extends Document>(collectionName: string): Promise<Collection<T> | null> {
@@ -236,8 +240,8 @@ export const monitorPriceDrops = ai.defineFlow(
       return;
     }
     
-    const previousCruisesDoc = await latestCruisesCollection.findOne({ _id: 'latest' } as any);
-    const previousOfferings = (previousCruisesDoc?.offerings || []) as CruiseOffering[];
+    const previousCruisesDoc = await latestCruisesCollection.findOne<LatestCruisesDoc>({ _id: 'latest' } as any);
+    const previousOfferings = previousCruisesDoc?.offerings || [];
 
     console.log(`Found ${currentOfferings.length} current cruise offerings.`);
     console.log(`Found ${previousOfferings.length} previous offerings to compare against.`);
@@ -283,7 +287,6 @@ export const monitorPriceDrops = ai.defineFlow(
         console.log(`Found ${detectedDrops.length} new price drops. Saving and notifying...`);
         await priceDropsCollection.insertMany(detectedDrops as any);
         await sendPriceDropEmail({ toEmail, priceDrops: detectedDrops });
-
     } else {
         console.log("No price drops found on this run.");
     }
@@ -303,11 +306,12 @@ export const monitorPriceDrops = ai.defineFlow(
   }
 );
 
-// Flow to retrieve the latest price drop
+/**
+ * Retrieves the most recent price drops.
+ */
 export const getRecentPriceDrops = ai.defineFlow(
   {
     name: 'getRecentPriceDrops',
-    description: 'Retrieves the most recent price drops.',
     outputSchema: z.array(PriceDropInfoSchema),
   },
   async () => {
@@ -327,10 +331,13 @@ export const getRecentPriceDrops = ai.defineFlow(
     if (!docs || docs.length === 0) {
       return [];
     }
-
-    // Filter out any documents that don't match the schema
+    
+    // The documents from MongoDB are generic `WithId<PriceDropInfo>`. 
+    // We need to parse and validate them against our Zod schema before returning.
+    // This ensures the data we return to the client is clean and matches expectations.
     const validPriceDrops = docs.reduce((acc, doc) => {
-        const { _id, ...rest } = doc as any; // Exclude MongoDB's _id
+        // Exclude MongoDB's _id before parsing
+        const { _id, ...rest } = doc as WithId<PriceDropInfo>; 
         const parsed = PriceDropInfoSchema.safeParse(rest);
         if (parsed.success) {
             acc.push(parsed.data);
@@ -344,5 +351,4 @@ export const getRecentPriceDrops = ai.defineFlow(
   }
 );
 
-
-
+    
