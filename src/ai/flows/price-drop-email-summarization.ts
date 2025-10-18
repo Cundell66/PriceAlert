@@ -244,7 +244,7 @@ export const monitorPriceDrops = ai.defineFlow(
       console.log('Archiving last run data to previous collection...');
       await previousCruisesCollection.updateOne(
         { _id: 'previous' },
-        { $set: { offerings: latestDoc.offerings, updatedAt: new Date() } },
+        { $set: { offerings: latestDoc.offerings, updatedAt: latestDoc.updatedAt } },
         { upsert: true }
       );
     }
@@ -401,4 +401,3 @@ export const getComparisonData = ai.defineFlow(
   }
 );
     
-
