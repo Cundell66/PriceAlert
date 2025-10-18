@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getComparisonDataAction } from '@/lib/actions';
 import type { CruiseOffering } from '@/lib/cruise-api';
 import type { ComparisonData } from '@/ai/flows/price-drop-email-summarization';
@@ -17,7 +17,10 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Info, AlertCircle } from 'lucide-react';
+import { Info, AlertCircle, Filter, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 function CruiseDataTable({ offerings, title, date }: { offerings: CruiseOffering[], title: string, date?: string }) {
   const formattedDate = date ? new Date(date).toLocaleString('en-GB') : 'N/A';
@@ -62,6 +65,8 @@ export default function ManualComparisonPage() {
   const [data, setData] = useState<ComparisonData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [vendorIdFilter, setVendorIdFilter] = useState('');
+  const [activeFilter, setActiveFilter] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -80,11 +85,52 @@ export default function ManualComparisonPage() {
     fetchData();
   }, []);
 
+  const handleFilter = () => {
+    setActiveFilter(vendorIdFilter.trim());
+  };
+
+  const clearFilter = () => {
+    setVendorIdFilter('');
+    setActiveFilter('');
+  };
+
+  const filteredData = useMemo(() => {
+    if (!data) return null;
+    if (!activeFilter) return data;
+
+    return {
+      ...data,
+      latest: data.latest.filter(o => o.vendor_id === activeFilter),
+      previous: data.previous.filter(o => o.vendor_id === activeFilter),
+    };
+  }, [data, activeFilter]);
+
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto p-4 md:p-8">
-        <h1 className="text-3xl font-headline mb-6">Manual Data Comparison</h1>
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+          <h1 className="text-3xl font-headline">Manual Data Comparison</h1>
+          <Card>
+            <CardContent className="p-3 flex items-center gap-2">
+                <div className="relative flex-grow">
+                     <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Filter by Vendor ID..."
+                        value={vendorIdFilter}
+                        onChange={(e) => setVendorIdFilter(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
+                        className="pl-9"
+                    />
+                </div>
+                <Button onClick={handleFilter} disabled={!vendorIdFilter}>Apply</Button>
+                <Button onClick={clearFilter} variant="ghost" size="icon" disabled={!activeFilter}>
+                    <X className="h-4 w-4" />
+                </Button>
+            </CardContent>
+          </Card>
+        </div>
         
         {isLoading && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -101,7 +147,7 @@ export default function ManualComparisonPage() {
             </Alert>
         )}
 
-        {!isLoading && !error && !data?.latest.length && !data?.previous.length && (
+        {!isLoading && !error && (!data?.latest.length && !data?.previous.length) && (
             <Alert>
                 <Info className="h-4 w-4" />
                 <AlertTitle>No Data Found</AlertTitle>
@@ -111,10 +157,10 @@ export default function ManualComparisonPage() {
           </Alert>
         )}
         
-        {!isLoading && !error && data && (
+        {!isLoading && !error && filteredData && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <CruiseDataTable offerings={data.latest} title="Latest Data" date={data.latestDate} />
-            <CruiseDataTable offerings={data.previous} title="Previous Data" date={data.previousDate} />
+            <CruiseDataTable offerings={filteredData.latest} title="Latest Data" date={filteredData.latestDate} />
+            <CruiseDataTable offerings={filteredData.previous} title="Previous Data" date={filteredData.previousDate} />
           </div>
         )}
       </main>
