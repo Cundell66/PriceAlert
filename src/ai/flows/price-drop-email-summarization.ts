@@ -9,6 +9,7 @@
  * - monitorPriceDrops - A flow that monitors the cruise API for price drops.
  * - sendPriceDropEmail - A flow that sends an email notification for a price drop.
  * - getRecentPriceDrops - A flow that retrieves recent price drops.
+ * - getComparisonData - A flow that retrieves the last two sets of cruise data for manual comparison.
  */
 
 import { ai } from '@/ai/genkit';
@@ -46,12 +47,16 @@ const EmailNotificationSchema = z.object({
 
 
 // MongoDB Collection Names
-const LATEST_CRUISES_COLLECTION = 'latestCruises';
+const LATEST_CRUISES_COLLECTION = 'cruises_latest';
+const PREVIOUS_CRUISES_COLLECTION = 'cruises_previous';
 const PRICE_DROPS_COLLECTION = 'priceDrops';
 
-interface LatestCruisesDoc {
+interface CruisesDoc {
+  _id: string; // Should be 'latest' or 'previous'
   offerings: CruiseOffering[];
+  updatedAt: Date;
 }
+
 
 // Helper to get a collection
 async function getCollection<T extends Document>(collectionName: string): Promise<Collection<T> | null> {
@@ -224,12 +229,24 @@ export const monitorPriceDrops = ai.defineFlow(
       return;
     }
 
-    const latestCruisesCollection = await getCollection('latestCruises');
-    const priceDropsCollection = await getCollection('priceDrops');
+    const latestCruisesCollection = await getCollection<CruisesDoc>(LATEST_CRUISES_COLLECTION);
+    const previousCruisesCollection = await getCollection<CruisesDoc>(PREVIOUS_CRUISES_COLLECTION);
+    const priceDropsCollection = await getCollection<PriceDropInfo>(PRICE_DROPS_COLLECTION);
     
-    if (!latestCruisesCollection || !priceDropsCollection) {
-        console.log('Monitoring skipped: Database not configured.');
+    if (!latestCruisesCollection || !previousCruisesCollection || !priceDropsCollection) {
+        console.log('Monitoring skipped: Database collections not configured.');
         return;
+    }
+    
+    // Archive the current "latest" to "previous"
+    const latestDoc = await latestCruisesCollection.findOne({ _id: 'latest' });
+    if (latestDoc) {
+      console.log('Archiving last run data to previous collection...');
+      await previousCruisesCollection.updateOne(
+        { _id: 'previous' },
+        { $set: { offerings: latestDoc.offerings, updatedAt: new Date() } },
+        { upsert: true }
+      );
     }
     
     console.log('Fetching current cruise prices...');
@@ -239,8 +256,20 @@ export const monitorPriceDrops = ai.defineFlow(
       console.error('fetchCruises did not return an array. Aborting monitoring run.');
       return;
     }
+
+    // Save the new data as "latest"
+    if (currentOfferings.length > 0) {
+      console.log('Saving current cruise offerings for next check...');
+      await latestCruisesCollection.updateOne(
+        { _id: 'latest' },
+        { $set: { offerings: currentOfferings, updatedAt: new Date() } },
+        { upsert: true }
+      );
+    } else {
+        console.log('No new offerings fetched. Keeping previous data.');
+    }
     
-    const previousCruisesDoc = await latestCruisesCollection.findOne<LatestCruisesDoc>({ _id: 'latest' } as any);
+    const previousCruisesDoc = await previousCruisesCollection.findOne({ _id: 'previous' });
     const previousOfferings = previousCruisesDoc?.offerings || [];
 
     console.log(`Found ${currentOfferings.length} current cruise offerings.`);
@@ -248,7 +277,6 @@ export const monitorPriceDrops = ai.defineFlow(
     
     const detectedDrops: PriceDropInfo[] = [];
 
-    // Use a Map for efficient lookup of previous offerings
     const previousOfferingsMap = new Map<string, CruiseOffering>();
     for (const offering of previousOfferings) {
         previousOfferingsMap.set(offering.offering_id, offering);
@@ -262,7 +290,6 @@ export const monitorPriceDrops = ai.defineFlow(
             const currentPrice = parseFloat(current.price);
             const previousPrice = parseFloat(previous.price);
 
-            // Check for a meaningful price drop (at least 1 cent)
             if (currentPrice > 0 && previousPrice > 0 && (previousPrice - currentPrice) >= 0.01) {
               console.log(`Price drop for ${current.ship_title} (${current.grade_name} / ${current.dealName})! Was ${previousPrice}, now ${currentPrice}`);
               const priceDropInfo: PriceDropInfo = {
@@ -289,17 +316,6 @@ export const monitorPriceDrops = ai.defineFlow(
         await sendPriceDropEmail({ toEmail, priceDrops: detectedDrops });
     } else {
         console.log("No price drops found on this run.");
-    }
-
-    if (currentOfferings.length > 0) {
-        console.log('Saving current cruise offerings for next check...');
-        await latestCruisesCollection.updateOne(
-            { _id: 'latest' } as any,
-            { $set: { offerings: currentOfferings } },
-            { upsert: true }
-        );
-    } else {
-        console.log('No new offerings to save. Keeping previous data.');
     }
     
     console.log('Monitoring complete.');
@@ -332,11 +348,7 @@ export const getRecentPriceDrops = ai.defineFlow(
       return [];
     }
     
-    // The documents from MongoDB are generic `WithId<PriceDropInfo>`. 
-    // We need to parse and validate them against our Zod schema before returning.
-    // This ensures the data we return to the client is clean and matches expectations.
     const validPriceDrops = docs.reduce((acc, doc) => {
-        // Exclude MongoDB's _id before parsing
         const { _id, ...rest } = doc as WithId<PriceDropInfo>; 
         const parsed = PriceDropInfoSchema.safeParse(rest);
         if (parsed.success) {
@@ -351,4 +363,42 @@ export const getRecentPriceDrops = ai.defineFlow(
   }
 );
 
+
+const ComparisonDataSchema = z.object({
+  latest: z.array(z.any()), // Using z.any() for simplicity, as this is for debug display
+  previous: z.array(z.any()),
+  latestDate: z.string().optional(),
+  previousDate: z.string().optional(),
+});
+export type ComparisonData = z.infer<typeof ComparisonDataSchema>;
+
+
+/**
+ * Retrieves the latest and previous cruise data sets for manual comparison.
+ */
+export const getComparisonData = ai.defineFlow(
+  {
+    name: 'getComparisonData',
+    outputSchema: ComparisonDataSchema,
+  },
+  async () => {
+    const latestCollection = await getCollection<CruisesDoc>(LATEST_CRUISES_COLLECTION);
+    const previousCollection = await getCollection<CruisesDoc>(PREVIOUS_CRUISES_COLLECTION);
+
+    if (!latestCollection || !previousCollection) {
+      return { latest: [], previous: [] };
+    }
+
+    const latestDoc = await latestCollection.findOne({_id: 'latest'});
+    const previousDoc = await previousCollection.findOne({_id: 'previous'});
+
+    return {
+      latest: latestDoc?.offerings || [],
+      previous: previousDoc?.offerings || [],
+      latestDate: latestDoc?.updatedAt?.toISOString(),
+      previousDate: previousDoc?.updatedAt?.toISOString(),
+    };
+  }
+);
     
+

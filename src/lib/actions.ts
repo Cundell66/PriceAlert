@@ -7,6 +7,7 @@ import {
   sendPriceDropEmail,
   getRecentPriceDrops,
   monitorPriceDrops,
+  getComparisonData,
 } from "@/ai/flows/price-drop-email-summarization";
 
 export async function generateSummaryAction(priceDropInfo: PriceDropInfo) {
@@ -85,3 +86,12 @@ export async function runCronJobAction() {
   }
 }
 
+export async function getComparisonDataAction() {
+  try {
+    const result = await getComparisonData();
+    return { success: true, data: result };
+  } catch (error: any) {
+    console.error("Error fetching comparison data:", error);
+    return { success: false, error: `Failed to fetch comparison data: ${error.message}` };
+  }
+}
