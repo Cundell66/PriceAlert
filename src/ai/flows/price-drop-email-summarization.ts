@@ -277,6 +277,7 @@ export const monitorPriceDrops = ai.defineFlow(
     
     const detectedDrops: PriceDropInfo[] = [];
 
+    // 1. Time-based comparison
     const previousOfferingsMap = new Map<string, CruiseOffering>();
     for (const offering of previousOfferings) {
         previousOfferingsMap.set(offering.offering_id, offering);
@@ -298,8 +299,8 @@ export const monitorPriceDrops = ai.defineFlow(
                 vendorId: current.vendor_id,
                 dealCode: current.dealCode,
                 dealName: current.dealName,
-                gradeCode: current.grade_code,
                 gradeName: current.grade_name,
+                gradeCode: current.grade_code,
                 priceFrom: previousPrice,
                 priceTo: currentPrice,
                 detectedAt: new Date().toISOString(),
@@ -309,6 +310,48 @@ export const monitorPriceDrops = ai.defineFlow(
         }
       }
     }
+
+    // 2. Anomaly-based comparison (premium deal cheaper than base deal)
+    const offeringsByCabin = new Map<string, CruiseOffering[]>();
+    for (const offering of currentOfferings) {
+        const cabinKey = `${offering.vendor_id}|${offering.grade_code}`;
+        if (!offeringsByCabin.has(cabinKey)) {
+            offeringsByCabin.set(cabinKey, []);
+        }
+        offeringsByCabin.get(cabinKey)!.push(offering);
+    }
+
+    for (const [cabinKey, offeringsInGroup] of offeringsByCabin.entries()) {
+        if (offeringsInGroup.length < 2) continue;
+
+        const baseDeal = offeringsInGroup.find(o => !o.dealName.toLowerCase().includes('drinks'));
+        const premiumDeals = offeringsInGroup.filter(o => o.dealName.toLowerCase().includes('drinks'));
+
+        if (baseDeal && premiumDeals.length > 0) {
+            const basePrice = parseFloat(baseDeal.price);
+
+            for (const premiumDeal of premiumDeals) {
+                const premiumPrice = parseFloat(premiumDeal.price);
+                if (premiumPrice > 0 && basePrice > 0 && premiumPrice < basePrice) {
+                    console.log(`ANOMALY DETECTED for ${baseDeal.ship_title} (${baseDeal.grade_name}): Premium deal "${premiumDeal.dealName}" (£${premiumPrice}) is cheaper than base deal "${baseDeal.dealName}" (£${basePrice})`);
+                    const anomalyDrop: PriceDropInfo = {
+                        shipName: baseDeal.ship_title,
+                        cruiseDate: formatDateWithOrdinal(baseDeal.starts_on),
+                        vendorId: baseDeal.vendor_id,
+                        dealCode: premiumDeal.dealCode, // The bargain is the premium deal
+                        dealName: `${premiumDeal.dealName} (Bargain Alert!)`,
+                        gradeCode: baseDeal.grade_code,
+                        gradeName: baseDeal.grade_name,
+                        priceFrom: basePrice, // Showing the price of the 'worse' deal
+                        priceTo: premiumPrice, // Showing the price of the 'better' deal
+                        detectedAt: new Date().toISOString(),
+                    };
+                    detectedDrops.push(anomalyDrop);
+                }
+            }
+        }
+    }
+
 
     if (detectedDrops.length > 0) {
         console.log(`Found ${detectedDrops.length} new price drops. Saving and notifying...`);
