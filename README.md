@@ -11,3 +11,5 @@ refined the comparison logic
 repaired 'problems'
 
 added /manual
+
+added manual filter
