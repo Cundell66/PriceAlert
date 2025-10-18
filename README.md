@@ -9,3 +9,5 @@ added deal code and name
 refined the comparison logic
 
 repaired 'problems'
+
+added /manual
