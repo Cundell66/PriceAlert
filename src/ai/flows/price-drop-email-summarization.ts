@@ -18,7 +18,7 @@ import { z } from 'zod';
 import nodemailer from 'nodemailer';
 import clientPromise from '@/lib/mongodb';
 import { Collection, WithId } from 'mongodb';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, subDays } from 'date-fns';
 
 // Schemas for price drop information
 const PriceDropInfoSchema = z.object({
@@ -333,6 +333,23 @@ export const monitorPriceDrops = ai.defineFlow(
             for (const premiumDeal of premiumDeals) {
                 const premiumPrice = parseFloat(premiumDeal.price);
                 if (premiumPrice > 0 && basePrice > 0 && premiumPrice < basePrice) {
+                    
+                    // Check if we've already notified about this specific anomaly recently
+                    const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+                    const existingAnomaly = await priceDropsCollection.findOne({
+                        vendorId: baseDeal.vendor_id,
+                        gradeCode: baseDeal.grade_code,
+                        dealCode: premiumDeal.dealCode, // The premium deal is the one we'd report
+                        priceTo: premiumPrice, // The price of the bargain
+                        'dealName': { $regex: /Bargain Alert/ }, // Check if it was marked as an anomaly
+                        'detectedAt': { $gte: sevenDaysAgo }
+                    } as any);
+
+                    if (existingAnomaly) {
+                        console.log(`Skipping already reported anomaly for ${baseDeal.ship_title} (${baseDeal.grade_name})`);
+                        continue; // Skip this anomaly, we've already seen it
+                    }
+
                     console.log(`ANOMALY DETECTED for ${baseDeal.ship_title} (${baseDeal.grade_name}): Premium deal "${premiumDeal.dealName}" (£${premiumPrice}) is cheaper than base deal "${baseDeal.dealName}" (£${basePrice})`);
                     const anomalyDrop: PriceDropInfo = {
                         shipName: baseDeal.ship_title,
